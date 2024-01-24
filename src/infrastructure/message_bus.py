@@ -1,10 +1,22 @@
 from __future__ import annotations
-from typing import Callable, Dict, List, Type, Union
+import inspect
+from typing import Union
 from src.domain import events, commands
 from src.infrastructure import unit_of_work
+from src.domain.handlers import COMMAND_HANDLERS, EVENT_HANDLERS
 
 
 Message = Union[commands.Command, events.Event]
+
+
+def inject_dependencies(handler, dependencies):
+    params = inspect.signature(handler).parameters
+    deps = {
+        name: dependency
+        for name, dependency in dependencies.items()
+        if name in params
+    }
+    return lambda message: handler(message, **deps)
 
 
 class MessageBus:
@@ -17,13 +29,21 @@ class MessageBus:
 
     def setup(
         self,
-        uow: unit_of_work.AbstractUnitOfWork,
-        command_handlers: Dict[Type[commands.Command], Callable],
-        event_handlers: Dict[Type[events.Event], List[Callable]]
+        uow: unit_of_work.AbstractUnitOfWork
     ):
         self.uow = uow
-        self.command_handlers = command_handlers
-        self.event_handlers = event_handlers
+        dependencies = {"uow": uow}
+        self.command_handlers = {
+            command_type: inject_dependencies(handler, dependencies)
+            for command_type, handler in COMMAND_HANDLERS.items()
+        }
+        self.event_handlers = {
+            event_type: [
+                inject_dependencies(handler, dependencies)
+                for handler in event_handlers
+            ]
+            for event_type, event_handlers in EVENT_HANDLERS.items()
+        }
 
     def handle(self, message: Message):
         self.queue = [message]
