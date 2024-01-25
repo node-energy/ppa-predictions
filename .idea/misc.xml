@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="Black">
+    <option name="enabledOnReformat" value="true" />
+    <option name="sdkUUID" value="f71a146f-7845-4813-904c-0df28a27a162" />
+  </component>
   <component name="ProjectRootManager" version="2" project-jdk-name="Poetry (ppa-predictions)" project-jdk-type="Python SDK" />
 </project>

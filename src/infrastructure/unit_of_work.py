@@ -6,6 +6,8 @@ from src.persistence import repository
 class AbstractUnitOfWork(abc.ABC):
     components: repository.AbstractRepository
     customers: repository.AbstractRepository
+    historic_load_profiles: repository.AbstractHistoriyLoadProfileRepository
+    locations: repository.AbstractRepository
 
     def __enter__(self) -> AbstractUnitOfWork:
         return self
@@ -34,6 +36,8 @@ class MemoryUnitOfWork(AbstractUnitOfWork):
     def __init__(self):
         self.customers = repository.MemoryRepository([])
         self.components = repository.MemoryRepository([])
+        self.historic_load_profiles = repository.HistoricLoadProfileMemoryRepository([])
+        self.locations = repository.MemoryRepository([])
         self.committed = False
 
     def _commit(self):

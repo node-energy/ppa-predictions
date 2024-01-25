@@ -1,7 +1,7 @@
 from __future__ import annotations
 from uuid import uuid4
 from src.domain import commands, events
-from src.domain.model import Customer, Component
+from src.domain import model
 from src.infrastructure import unit_of_work
 
 
@@ -12,7 +12,7 @@ def test_handler(event: events.CustomerCreated):
 def add_customer(
         cmd: commands.CreateCustomer
 ):
-    customer = Customer(id=uuid4())
+    customer = model.Customer(ref=uuid4())
     return customer
 
 
@@ -29,7 +29,8 @@ def add_component(
         uow: unit_of_work.AbstractUnitOfWork
 ):
     with uow:
-        component = Component(ref=uuid4(), type=cmd.type)
+        location = uow.locations.get(cmd.location_ref)
+        component = model.Component(ref=uuid4(), type=cmd.type, location=location)
         uow.components.add(component)
         uow.commit()
     return component
@@ -43,7 +44,9 @@ def add_historic_load_profile(
         component = uow.components.get(cmd.component_id)
         if component is None:
             raise Exception()  # raise InvalidComponentID
-        component.add_historic_load_profile(cmd.timestamps)
+
+        hlp = model.HistoricLoadProfile(ref=uuid4(), component=component, timestamps=cmd.timestamps)
+        uow.historic_load_profiles.add(hlp)
         uow.commit()
 
 

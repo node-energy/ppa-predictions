@@ -48,3 +48,19 @@ class MemoryRepository(AbstractRepository):
 
     def _get_all(self):  # TODO CQRS?
         return self._objs
+
+
+class AbstractHistoriyLoadProfileRepository(AbstractRepository):
+    def get_by_component_ref(self, component_ref):
+        historic_load_profile = self._get_by_component_ref(component_ref)
+        if historic_load_profile:
+            self.seen.add(historic_load_profile)
+        return historic_load_profile
+
+    def _get_by_component_ref(self, component_ref):
+        raise NotImplementedError
+
+
+class HistoricLoadProfileMemoryRepository(AbstractHistoriyLoadProfileRepository, MemoryRepository):
+    def _get_by_component_ref(self, component_ref):
+        return next(h for h in self._objs if str(h.component.ref) == component_ref)

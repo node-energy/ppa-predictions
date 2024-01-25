@@ -4,5 +4,5 @@ from src.domain.model import Customer
 
 def test_create_customer():
     ref = uuid4()
-    customer = Customer(id=ref)
-    assert customer.id == ref
+    customer = Customer(ref=ref)
+    assert customer.ref == ref

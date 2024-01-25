@@ -9,3 +9,8 @@ class Event:
 @dataclass
 class CustomerCreated(Event):
     customer_id: UUID
+
+
+@dataclass
+class HistoricLoadProfileReceived(Event):
+    pass
