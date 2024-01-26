@@ -3,7 +3,6 @@ import abc
 
 class AbstractRepository(abc.ABC):
     def __init__(self):
-        print("new repo")
         self.seen = set()
 
     def add(self, obj):

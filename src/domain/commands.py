@@ -1,6 +1,6 @@
-from uuid import UUID
+from datetime import datetime
 from dataclasses import dataclass
-from typing import List, Literal
+from typing import List, Literal, Optional
 from src.domain.model import TimeStamp
 
 
@@ -26,5 +26,14 @@ class CreateComponent(Command):
 
 @dataclass
 class AddHistoricLoadProfile(Command):
-    component_id: str
+    component_ref: str
     timestamps: List[TimeStamp]
+
+
+@dataclass
+class MakePrediction(Command):
+    use_data_from: datetime
+    use_data_to: datetime
+    predict_days: int
+    component_ref: str
+    predictor: Optional[str]

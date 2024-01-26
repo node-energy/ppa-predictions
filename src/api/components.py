@@ -28,5 +28,5 @@ async def add_component(bus: MessageBus = Depends(get_bus)):
 
 @router.post("/{component_id}/load_profile")
 async def add_historic_load_profile(component_id: str, bus: MessageBus = Depends(get_bus)):
-    bus.handle(commands.AddHistoricLoadProfile(component_id=component_id, timestamps=[]))
+    bus.handle(commands.AddHistoricLoadProfile(component_ref=component_id, timestamps=[]))
     return Response(status_code=status.HTTP_201_CREATED)

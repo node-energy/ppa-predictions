@@ -29,7 +29,7 @@ class MessageBus:
 
     def setup(
         self,
-        uow: unit_of_work.AbstractUnitOfWork
+        uow: unit_of_work.AbstractUnitOfWork,
     ):
         self.uow = uow
         dependencies = {"uow": uow}

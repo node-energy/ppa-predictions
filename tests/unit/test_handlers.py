@@ -32,7 +32,7 @@ class TestAddHistoricLoadProfile:
         component = bus.handle(commands.CreateComponent(type='producer', location_ref=str(location.ref)))
         for dt in (datetime.now() - timedelta(minutes=15*n) for n in range(1000)):
             timestamps.append(model.TimeStamp(datetime=dt, value=random.uniform(0.0, 1.9)))
-        cmd = commands.AddHistoricLoadProfile(component_id=str(component.ref), timestamps=timestamps)
+        cmd = commands.AddHistoricLoadProfile(component_ref=str(component.ref), timestamps=timestamps)
         bus.handle(cmd)
         historic_load_profile: model.HistoricLoadProfile = bus.uow.historic_load_profiles.get_by_component_ref(
             str(component.ref)

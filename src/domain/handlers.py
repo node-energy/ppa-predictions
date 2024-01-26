@@ -3,6 +3,7 @@ from uuid import uuid4
 from src.domain import commands, events
 from src.domain import model
 from src.infrastructure import unit_of_work
+from src.services import predictor
 
 
 def test_handler(event: events.CustomerCreated):
@@ -41,13 +42,25 @@ def add_historic_load_profile(
         uow: unit_of_work.AbstractUnitOfWork
 ):
     with uow:
-        component = uow.components.get(cmd.component_id)
+        component = uow.components.get(cmd.component_ref)
         if component is None:
             raise Exception()  # raise InvalidComponentID
 
         hlp = model.HistoricLoadProfile(ref=uuid4(), component=component, timestamps=cmd.timestamps)
         uow.historic_load_profiles.add(hlp)
         uow.commit()
+
+
+def make_prediction(
+        cmd: commands.MakePrediction,
+        uow: unit_of_work.AbstractUnitOfWork
+):
+    with uow:
+        component = uow.components.get(cmd.component_ref)
+        if component is None:
+            raise Exception  # raise InvlaidComponentID
+
+
 
 
 EVENT_HANDLERS = {
@@ -59,4 +72,5 @@ COMMAND_HANDLERS = {
     commands.GetComponents: get_components,
     commands.CreateComponent: add_component,
     commands.AddHistoricLoadProfile: add_historic_load_profile,
+    commands.MakePrediction: make_prediction,
 }

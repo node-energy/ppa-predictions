@@ -2,8 +2,9 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 from uuid import UUID
-from typing import List, Literal, Set
+from typing import List, Literal
 from dataclasses import dataclass
+from pandas import DataFrame, DatetimeIndex
 
 
 @dataclass
@@ -33,10 +34,6 @@ class Component:
     type: Literal["producer", "consumer"]
     location: Location
 
-    def add_historic_load_profile(self, timestamps: List[TimeStamp]):
-        for timestamp in sorted(timestamps):
-            print(timestamp)
-
 
 @dataclass()
 class HistoricLoadProfile:
@@ -51,6 +48,15 @@ class HistoricLoadProfile:
 
     def __hash__(self):
         return hash(self.ref)
+
+    @classmethod
+    def from_dataframe(cls, ref, component, df):
+        timestamps: List[TimeStamp] = []
+        for index, row in df.iterrows():
+            timestamps.append(
+                TimeStamp(datetime=index.to_pydatetime(), value=row.iloc[0])
+            )
+        return cls(ref, component, timestamps)
 
 
 @dataclass
