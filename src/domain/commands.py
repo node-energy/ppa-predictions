@@ -31,6 +31,11 @@ class AddHistoricLoadProfile(Command):
 
 
 @dataclass
+class FetchLoadData(Command):
+    pass
+
+
+@dataclass
 class MakePrediction(Command):
     use_data_from: datetime
     use_data_to: datetime

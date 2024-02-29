@@ -51,6 +51,13 @@ def add_historic_load_profile(
         uow.commit()
 
 
+def fetch_load_data(
+        cmd: commands.FetchLoadData,
+        uow: unit_of_work.AbstractUnitOfWork
+):
+    pass
+
+
 def make_prediction(
         cmd: commands.MakePrediction,
         uow: unit_of_work.AbstractUnitOfWork
@@ -72,5 +79,6 @@ COMMAND_HANDLERS = {
     commands.GetComponents: get_components,
     commands.CreateComponent: add_component,
     commands.AddHistoricLoadProfile: add_historic_load_profile,
+    commands.FetchLoadData: fetch_load_data,
     commands.MakePrediction: make_prediction,
 }
