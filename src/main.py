@@ -1,7 +1,10 @@
 from fastapi import FastAPI
+from datetime import datetime
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import MemoryUnitOfWork
 from src.api import components as components_api
+from src.utils.decorators import repeat_at
+from src.domain import commands
 
 
 app = FastAPI()
@@ -17,3 +20,9 @@ async def init_bus():
 @app.get("/")
 async def root():
     return {"message": "root"}
+
+
+@repeat_at("0 8 * * *")
+async def fetch_energy_data():
+    bus = MessageBus()
+    bus.handle(commands.FetchLoadData())
