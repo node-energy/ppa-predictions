@@ -10,12 +10,13 @@ from traceback import format_exception
 
 from starlette.concurrency import run_in_threadpool
 
-logger = logging.Logger(__name__)
+# logger = logging.getLogger(__name__)
 
 
 def repeat_at(
-        #*,
-        cron_str: str
+    # *,
+    cron_str: str,
+    logger: logging.Logger,
 ):
     def decorator(func):
         is_coroutine = asyncio.iscoroutinefunction(func)
@@ -26,7 +27,8 @@ def repeat_at(
                 now = datetime.now()
                 cron = croniter.croniter(cron_str, now)
                 dt = cron.get_next(datetime)
-                await asyncio.sleep((dt-now).total_seconds())
+                logger.info(f"Next data fetch: {dt}")
+                await asyncio.sleep((dt - now).total_seconds())
                 while True:
                     try:
                         if is_coroutine:
@@ -34,9 +36,16 @@ def repeat_at(
                         else:
                             await run_in_threadpool(func)
                     except Exception as exc:
-                        formatted_exception = "".join(format_exception(type(exc), exc, exc.__traceback__))
+                        formatted_exception = "".join(
+                            format_exception(type(exc), exc, exc.__traceback__)
+                        )
                         logger.error(formatted_exception)
-                    await asyncio.sleep((dt-now).total_seconds())
+                    dt = cron.get_next(datetime)
+                    logger.info(f"Next data fetch: {dt}")
+                    await asyncio.sleep((dt - now).total_seconds())
+
             ensure_future(loop())
+
         return wrapped
+
     return decorator
