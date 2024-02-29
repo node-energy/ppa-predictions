@@ -17,8 +17,22 @@ class Customer:
 # value object
 @dataclass
 class State(str, Enum):
-    berlin = 'berlin'
-    brandenburg = 'brandenburg'
+    baden_wurttemberg = 'BW'
+    bayern = 'BY'
+    berlin = 'BE'
+    brandenburg = 'BB'
+    bremen = 'HB'
+    hamburg = 'HH'
+    hessen = 'HE'
+    mecklenburg_vorpommern = 'MV'
+    niedersachsen = 'NI'
+    nordrhein_westfalen = 'NW'
+    rheinland_pfalz = 'RP'
+    saarland = 'SL'
+    sachsen = 'SN'
+    sachsen_anhalt = 'ST'
+    schleswig_holstein = 'SH'
+    thuringen = 'TH'
 
 
 @dataclass
