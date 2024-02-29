@@ -1,7 +1,14 @@
+import string
+
 import pytest
 import uuid
 import pandas as pd
+import random
 from src.domain import model
+
+
+def random_malo():
+    return ''.join(random.choices(string.digits, k=11))
 
 
 @pytest.fixture
@@ -16,7 +23,7 @@ def location(customer):
 
 @pytest.fixture
 def component(location):
-    return model.Component(ref=uuid.uuid4(), type='consumer', location=location)
+    return model.Component(ref=uuid.uuid4(), malo=random_malo(), type='consumer', location=location)
 
 
 @pytest.fixture

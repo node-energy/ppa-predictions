@@ -45,6 +45,7 @@ class Location:
 @dataclass(unsafe_hash=True)
 class Component:
     ref: UUID
+    malo: str
     type: Literal["producer", "consumer"]
     location: Location
 

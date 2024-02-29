@@ -13,4 +13,9 @@ class CustomerCreated(Event):
 
 @dataclass
 class HistoricLoadProfileReceived(Event):
-    pass
+    component_ref: UUID
+
+
+@dataclass
+class PredictionCreated(Event):
+    prediction_ref: UUID

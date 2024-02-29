@@ -1,9 +1,11 @@
 from __future__ import annotations
+
+import datetime
 from uuid import uuid4
 from src.domain import commands, events
 from src.domain import model
 from src.infrastructure import unit_of_work
-from src.services import predictor
+from src.services import predictor, load_data
 
 
 def test_handler(event: events.CustomerCreated):
@@ -31,7 +33,7 @@ def add_component(
 ):
     with uow:
         location = uow.locations.get(cmd.location_ref)
-        component = model.Component(ref=uuid4(), type=cmd.type, location=location)
+        component = model.Component(ref=uuid4(), malo=cmd.malo, type=cmd.type, location=location)
         uow.components.add(component)
         uow.commit()
     return component
@@ -53,9 +55,13 @@ def add_historic_load_profile(
 
 def fetch_load_data(
         cmd: commands.FetchLoadData,
-        uow: unit_of_work.AbstractUnitOfWork
+        uow: unit_of_work.AbstractUnitOfWork,
+        ldr: load_data.AbstractLoadDataRetriever
 ):
-    pass
+    print("FETCHED DATA")
+    components = uow.components.get_all()
+    for component in components:
+        energy_data = ldr.get_data(component.malo)
 
 
 def make_prediction(
@@ -65,13 +71,36 @@ def make_prediction(
     with uow:
         component = uow.components.get(cmd.component_ref)
         if component is None:
-            raise Exception  # raise InvlaidComponentID
+            raise Exception  # raise InvalidComponentID
 
 
+def create_prediction(
+        evt: events.HistoricLoadProfileReceived,
+        uow: unit_of_work.AbstractUnitOfWork
+):
+    with uow:
+        component = uow.components.get(evt.component_ref)
+        load_profile = uow.historic_load_profiles.get_by_component_ref(component.ref)  # TODO to slice
+        predictr = predictor.RandomForestPredictor()
+        predictr.configure(historic_load_profile_slice=load_profile, state=component.location.state)
+        prediction_df = predictr.create_prediction()
+        # TODO to timestamps
+        prediction = model.Prediction(uuid4(), component, datetime.datetime.now(), prediction_df)
+        uow.predictions.save()
+        store_prediction_file(events.PredictionCreated(prediction.ref), uow)
+        #  trigger event prediction created
+
+
+def store_prediction_file(
+        evt: events.PredictionCreated,
+        uow: unit_of_work.AbstractUnitOfWork
+):
+    pass
 
 
 EVENT_HANDLERS = {
     events.CustomerCreated: [test_handler],
+    events.HistoricLoadProfileReceived: [create_prediction]
 }
 
 COMMAND_HANDLERS = {

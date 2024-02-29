@@ -21,6 +21,7 @@ class GetComponents(Command):
 @dataclass
 class CreateComponent(Command):
     location_ref: str
+    malo: str
     type: Literal['producer', 'consumer']
 
 
