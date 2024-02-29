@@ -4,6 +4,7 @@ from typing import Union
 from src.domain import events, commands
 from src.infrastructure import unit_of_work
 from src.domain.handlers import COMMAND_HANDLERS, EVENT_HANDLERS
+from src.services import load_data, data_store
 
 
 Message = Union[commands.Command, events.Event]
@@ -30,9 +31,13 @@ class MessageBus:
     def setup(
         self,
         uow: unit_of_work.AbstractUnitOfWork,
+        ldr: load_data.AbstractLoadDataRetriever,
+        dst: data_store.AbstractDataStore,
     ):
         self.uow = uow
-        dependencies = {"uow": uow}
+        self.ldr = ldr
+        self.dst = dst
+        dependencies = {"uow": uow, "ldr": ldr, "dst": dst}
         self.command_handlers = {
             command_type: inject_dependencies(handler, dependencies)
             for command_type, handler in COMMAND_HANDLERS.items()
