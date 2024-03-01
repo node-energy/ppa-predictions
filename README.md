@@ -55,3 +55,7 @@ ppa-predictions uses alembic for Database Migrations
 | API_KEY*                       | Secret API Key for API Auth                  | -                                           | topsecret                        |
 | OPTINODE_DB_CONNECTION_STRING* | Connection String for opti.node read replica | -                                           | postgres://user:pw@host:port/db  |
 *Secret
+=======
+## Access service on staging
+
+```kubectl port-forward svc/ppa-predictions-service 8001:8001 -n ppa (--context optinode-staging)```
