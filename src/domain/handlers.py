@@ -5,7 +5,7 @@ from uuid import uuid4
 from src.domain import commands, events
 from src.domain import model
 from src.infrastructure import unit_of_work
-from src.services import predictor, load_data
+from src.services import predictor, load_data, data_store
 
 
 def test_handler(event: events.CustomerCreated):
@@ -61,7 +61,10 @@ def fetch_load_data(
     print("FETCHED DATA")
     components = uow.components.get_all()
     for component in components:
-        energy_data = ldr.get_data(component.malo)
+        try:
+            energy_data = ldr.get_data(component.malo)
+        except Exception as exc:
+            pass
 
 
 def make_prediction(
@@ -76,26 +79,28 @@ def make_prediction(
 
 def create_prediction(
         evt: events.HistoricLoadProfileReceived,
-        uow: unit_of_work.AbstractUnitOfWork
+        uow: unit_of_work.AbstractUnitOfWork,
+        dst: data_store.AbstractDataStore
 ):
     with uow:
         component = uow.components.get(evt.component_ref)
-        load_profile = uow.historic_load_profiles.get_by_component_ref(component.ref)  # TODO to slice
+        load_profile = uow.historic_load_profiles.get_by_component_ref(component.ref).to_dataframe()  # TODO to slice
         predictr = predictor.RandomForestPredictor()
         predictr.configure(historic_load_profile_slice=load_profile, state=component.location.state)
         prediction_df = predictr.create_prediction()
-        # TODO to timestamps
-        prediction = model.Prediction(uuid4(), component, datetime.datetime.now(), prediction_df)
-        uow.predictions.save()
-        store_prediction_file(events.PredictionCreated(prediction.ref), uow)
-        #  trigger event prediction created
+        prediction = model.Prediction.from_dataframe(uuid4(), component, datetime.datetime.now(), prediction_df)
+        uow.predictions.add(prediction)
+        store_prediction_file(events.PredictionCreated(prediction.ref), uow, dst)
 
 
 def store_prediction_file(
         evt: events.PredictionCreated,
-        uow: unit_of_work.AbstractUnitOfWork
+        uow: unit_of_work.AbstractUnitOfWork,
+        dst: data_store.AbstractDataStore
 ):
-    pass
+    prediction = uow.predictions.get(evt.prediction_ref)
+    buffer = prediction.to_csv_buffer()
+    dst.save_file(file_name=f"{prediction.component.malo}_{prediction.created}", buffer=buffer)
 
 
 EVENT_HANDLERS = {
