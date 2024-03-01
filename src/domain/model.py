@@ -1,10 +1,13 @@
 from __future__ import annotations
+
+import io
 from datetime import datetime
 from enum import Enum
 from uuid import UUID
 from typing import List, Literal
 from dataclasses import dataclass
-from pandas import DataFrame, DatetimeIndex
+
+import pandas
 
 
 @dataclass
@@ -73,6 +76,9 @@ class HistoricLoadProfile:
             )
         return cls(ref, component, timestamps)
 
+    def to_dataframe(self):
+        return pandas.DataFrame(t.as_dict() for t in self.timestamps)
+
 
 @dataclass
 class Prediction:
@@ -80,6 +86,28 @@ class Prediction:
     component: Component
     created: datetime
     timestamps: List[TimeStamp]
+
+    @classmethod
+    def from_dataframe(cls, ref, component, created, df):
+        timestamps: List[TimeStamp] = []
+        for index, row in df.iterrows():
+            timestamps.append(
+                TimeStamp(datetime=index.to_pydatetime(), value=row.iloc[0])
+            )
+        return cls(ref, component, created, timestamps)
+
+    def to_dataframe(self):
+        return pandas.DataFrame(t.as_dict() for t in self.timestamps)
+
+    def to_csv_buffer(self):
+        df = self.to_dataframe()
+        df.rename(columns={
+            'datetime': 'Timestamp (Europe/Berlin)',
+            'value': self.component.malo
+        }, inplace=True)
+
+        csv_buffer = io.BytesIO()
+        return df.to_csv(csv_buffer, sep=';', index=False)
 
 
 # value_object
@@ -94,6 +122,9 @@ class TimeStamp:
         if other.datetime is None:
             return True
         return self.datetime > other.datetime
+
+    def as_dict(self):
+        return {'datetime': self.datetime, 'value': self.value}
 
 
 # value_object
