@@ -8,6 +8,7 @@ class AbstractUnitOfWork(abc.ABC):
     customers: repository.AbstractRepository
     historic_load_profiles: repository.AbstractHistoriyLoadProfileRepository
     locations: repository.AbstractRepository
+    predictions: repository.AbstractRepository
 
     def __enter__(self) -> AbstractUnitOfWork:
         return self
