@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ppa-predictions
+  namespace: ppa
+  labels:
+    deployment: ppa-predictions
+spec:
+  selector:
+    matchLabels:
+      app: ppa-predictions
+  template:
+    metadata:
+      annotations:
+        seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'docker/default'
+        apparmor.security.beta.kubernetes.io/allowedProfileNames: 'runtime/default'
+        seccomp.security.alpha.kubernetes.io/defaultProfileName:  'docker/default'
+        apparmor.security.beta.kubernetes.io/defaultProfileName:  'runtime/default'
+      labels:
+        app: ppa-predictions
+    spec:
+      priorityClassName: "normal-priority"
+      securityContext:
+        runAsUser: 1000  # prevent running as root
+        fsGroup: 1000
+      containers:
+        - name: ppa-predictions
+          image: "nodeenergy.azurecr.io/ppa-predictions:latest"
+          command: ["uvicorn", "src.main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "8001"]
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "100Mi"
+            limits:
+              cpu: "1000m"
+              memory: "600Mi"
+      imagePullSecrets:
+        - name: az-registry-credentials
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: ppa-predictions
+          matchLabelKeys:
+            - pod-template-hash
