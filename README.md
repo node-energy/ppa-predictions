@@ -21,3 +21,7 @@ OR
 ## Run locally
 
 ```python -m uvicorn src.main:app --reload```
+
+## Access service on staging
+
+```kubectl port-forward svc/ppa-predictions-service 8001:8001 -n ppa (--context optinode-staging)```
