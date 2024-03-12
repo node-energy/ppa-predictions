@@ -1,0 +1,13 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: ppa-predictions-service
+  namespace: ppa
+spec:
+  selector:
+    app: ppa-predictions
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8001
+    targetPort: 8001
