@@ -3,6 +3,6 @@ from src.domain.model import Customer
 
 
 def test_create_customer():
-    ref = uuid4()
-    customer = Customer(ref=ref)
-    assert customer.ref == ref
+    id = uuid4()
+    customer = Customer(id=id)
+    assert customer.id == id

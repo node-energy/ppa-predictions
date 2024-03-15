@@ -12,18 +12,18 @@ def random_malo():
 
 
 @pytest.fixture
-def customer():
-    return model.Customer(ref=uuid.uuid4())
+def company():
+    return model.Company(id=uuid.uuid4(), name="corp")
 
 
 @pytest.fixture
-def location(customer):
-    return model.Location(ref=uuid.uuid4(), state=model.State.berlin, customer=customer)
+def location(company):
+    return model.Location(id=uuid.uuid4(), state=model.State.berlin, company=company)
 
 
 @pytest.fixture
 def component(location):
-    return model.Component(ref=uuid.uuid4(), malo=random_malo(), type='consumer', location=location)
+    return model.Component(id=uuid.uuid4(), malo=random_malo(), type='consumer', location=location)
 
 
 @pytest.fixture
@@ -34,5 +34,5 @@ def historic_load_profile(component):
         parse_dates=True,
     )
     return model.HistoricLoadProfile.from_dataframe(
-        ref=uuid.uuid4(), component=component, df=df
+        id=uuid.uuid4(), component=component, df=df
     )

@@ -12,6 +12,17 @@ class CustomerCreated(Event):
 
 
 @dataclass
+class LocationCreated(Event):
+    location_ref: str
+
+
+@dataclass
+class ProjectCreated(Event):
+    project_ref: str
+    name: str
+
+
+@dataclass
 class HistoricLoadProfileReceived(Event):
     component_ref: UUID
 

@@ -1,12 +1,13 @@
 import logging
 import sys
 from fastapi import FastAPI
-from datetime import datetime
+from fastapi.middleware.cors import CORSMiddleware
 from src.infrastructure.message_bus import MessageBus
-from src.infrastructure.unit_of_work import MemoryUnitOfWork
+from src.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 from src.services.load_data import APILoadDataRetriever
 from src.services.data_store import LocalDataStore
 from src.api import components as components_api
+from src.api import projects as projects_api
 from src.utils.decorators import repeat_at
 from src.domain import commands
 
@@ -20,14 +21,28 @@ logger.addHandler(stream_handler)
 
 
 app = FastAPI(debug=True)
+
+origins = [
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(components_api.router)
+app.include_router(projects_api.router)
 
 
 @app.on_event("startup")
 async def init_bus():
     bus = MessageBus()
     bus.setup(
-        uow=MemoryUnitOfWork(),
+        uow=SqlAlchemyUnitOfWork(),
         ldr=APILoadDataRetriever(),
         dst=LocalDataStore(),
     )
