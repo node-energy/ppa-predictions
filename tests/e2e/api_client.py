@@ -76,3 +76,10 @@ class TestProject:
         updated_project = uow.projects.get(project.id)
         assert updated_project.name == "Renamed Project"
         assert str(updated_project.id) == str(project.id)
+
+
+class TestLocation:
+    def test_create_location(self, bus, setup_database):
+        response = client.post("/locations/", json={"name": "New Location"})
+        assert response.status_code == 201
+        assert {"name": "New Location"}.items() <= response.json().items()

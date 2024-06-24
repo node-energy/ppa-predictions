@@ -1,11 +1,21 @@
 from datetime import datetime
 from dataclasses import dataclass
 from typing import List, Literal, Optional
-from src.domain.model import TimeStamp, State
+from src.domain.model import State
 
 
 class Command:
     pass
+
+
+@dataclass
+class UpdateHistoricData(Command):
+    location_id: str
+
+
+@dataclass
+class CalculatePredictions(Command):
+    location_id: str
 
 
 @dataclass
@@ -19,10 +29,14 @@ class CreateProject(Command):
 
 
 @dataclass
+class CreateCompany(Command):
+    name: str
+
+
+@dataclass
 class CreateLocation(Command):
-    project_ref: str
-    state: State
-    company_ref: str
+    state: State  # value obj
+    residual_short_malo: str
 
 
 @dataclass
@@ -43,12 +57,6 @@ class CreateComponent(Command):
 
 
 @dataclass
-class AddHistoricLoadProfile(Command):
-    component_ref: str
-    timestamps: List[TimeStamp]
-
-
-@dataclass
 class FetchLoadData(Command):
     pass
 
@@ -60,3 +68,36 @@ class MakePrediction(Command):
     predict_days: int
     component_ref: str
     predictor: Optional[str]
+
+
+# new
+@dataclass
+class FetchAllHistoricData(Command):
+    pass
+
+
+@dataclass
+class FetchHistoricDataForComponent(Command):
+    component_id: str
+    historic_days: Optional[int] = 90
+
+
+@dataclass
+class MakeAllPredictions(Command):
+    pass
+
+
+@dataclass
+class MakePredictionForComponent(Command):
+    component_id: str
+    predict_days: Optional[int] = 14
+
+
+@dataclass
+class CreateAllSchedules(Command):
+    pass
+
+
+@dataclass
+class CreateScheduleForComponent(Command):
+    component_id: str

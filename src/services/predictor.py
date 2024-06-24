@@ -1,88 +1,108 @@
 import abc
-import datetime
-from datetime import date
-import holidays
-import pandas as pd
 import numpy as np
+import pandas
+import pandas as pd
+from datetime import datetime
+from holidays import country_holidays
+from typing import Optional
+from dataclasses import dataclass
+from enum import Enum
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split, GridSearchCV
-from src.domain.model import HistoricLoadProfile
+#from src.domain.value_objects import Period
+
+
+@dataclass
+class Period:
+    start: datetime
+    end: datetime
+
+    def __post_init__(self):
+        self.start = self.start.replace(hour=0, minute=0, second=0, microsecond=0)
+        self.end = self.end.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+
+class Entity:
+    pass
+
+
+class PredictionType(Enum):
+    CONSUMPTION = 0
+    GENERATION = 1
+
+
+class State(str, Enum):
+    BADEN_WURTTEMBERG = "BW"
+    BAYERN = "BY"
+    BERLIN = "BE"
+    BRANDENBURG = "BB"
+    BREMEN = "HB"
+    HAMBURG = "HH"
+    HESSEN = "HE"
+    MECKLENBURG_VORPOMMERN = "MV"
+    NIEDERSACHSEN = "NI"
+    NORDRHEIN_WESTFALEN = "NW"
+    RHEINLAND_PFALZ = "RP"
+    SAARLAND = "SL"
+    SACHSEN = "SN"
+    SACHSEN_ANHALT = "ST"
+    SCHLESWIG_HOLSTEIN = "SH"
+    THURINGEN = "TH"
+
+
+class Unit(str, Enum):
+    kWh = "kWh"
+
+
+@dataclass
+class PredictorSettings(Entity):
+    state: State
+    output_period: Period
+    input_period: Optional[Period] = None
+    type: PredictionType = PredictionType.CONSUMPTION
+    unit: Unit = Unit.kWh
 
 
 class AbstractPredictor(abc.ABC):
-    @abc.abstractmethod
-    def create_prediction(self):
-        raise NotImplementedError
+    def __init__(self, input_df: pd.DataFrame, settings: PredictorSettings):
+        self.input_df = input_df
+        self.settings = settings
+        self.future_df: Optional[pd.DataFrame] = None
+        self.rmse: Optional[float] = None
 
-
-DEFAULT_NUM_ESTIMATORS = 100
-DEFAULT_MAX_DEPTH = 10
-DEFAULT_RANDOM_STATE = 56
-
-
-class SimplePredictor(AbstractPredictor):
-    def configure(
-        self, historic_load_profile_slice: HistoricLoadProfile, state, predict_days=7
-    ):
-        self._historic_load_prodile_slice = historic_load_profile_slice
-        self._state = state
-        self._predict_days = predict_days
-
-    def create_prediction(self):
-        historic_df = self._get_df()
-        start_date = datetime.datetime.now()
-        end_date = start_date + datetime.timedelta(days=self._predict_days)
-        future_datetimes = pd.date_range(start_date, end_date, freq="15min").tolist()
-        future_df = pd.DataFrame({"datetime": future_datetimes})
-        future_df = pd.concat([future_df, historic_df], axis="columns")
-        return future_df
-        # get time series interval
-        # for each day get weekday
-        # for each day check if holiday
-        # for each day get hour consumption
-        #  move data to fit year (weekdays, fridays, weekends, time, holidays)
-        #  fill missing data
-
-    def _get_df(self):
-        historic_load_profile_slice = self._historic_load_prodile_slice
-        data = list(
-            map(lambda t: [t.datetime, t.value], historic_load_profile_slice.timestamps)
+    def _create_future_df(self):
+        future_df = pd.DataFrame(
+            {
+                "datetime": pd.date_range(
+                    start=self.settings.output_period.start,
+                    end=self.settings.output_period.end,
+                    freq="15min",
+                )
+            }
         )
-        historic_df = pd.DataFrame(data, columns=["datetime", "value"])
-        historic_df = historic_df.set_index("datetime")
-        historic_df["day_of_week"] = pd.to_datetime(historic_df.index).dayofweek
-        state_holidays = holidays.country_holidays("DE", subdiv=self._state)
-        historic_df["is_holiday"] = historic_df.index.to_series().apply(
-            lambda d: d in state_holidays
-        )
-        historic_df["is_weekday"] = np.where(
-            historic_df["day_of_week"] < 5, True, False
-        )
-        historic_df["is_friday"] = np.where(
-            historic_df["day_of_week"] == 4, True, False
-        )
-        historic_df["is_saturday"] = np.where(
-            historic_df["day_of_week"] == 5, True, False
-        )
-        historic_df["is_sunday"] = np.where(
-            historic_df["day_of_week"] == 6, True, False
-        )
-        historic_df["month"] = pd.to_datetime(historic_df.index).month
-        historic_df["hour"] = historic_df.index.to_series().apply(
-            lambda d: d.hour + d.minute / 60
-        )
-        historic_df["nighttime"] = np.cos(2 * np.pi * historic_df["hour"] / 24)
-        return historic_df
+        future_df.set_index("datetime", inplace=True)
+        return self._add_input_fields(future_df)
 
+    def _add_input_fields(
+        self, df: pd.DataFrame
+    ):  # assume df consists of datetime index and value
+        df["day_of_week"] = pd.to_datetime(df.index).dayofweek
+        df["is_weekday"] = np.where(df["day_of_week"] < 5, True, False)
+        df["is_friday"] = np.where(df["day_of_week"] == 4, True, False)
+        df["is_saturday"] = np.where(df["day_of_week"] == 5, True, False)
+        df["is_sunday"] = np.where(df["day_of_week"] == 6, True, False)
+        df["month"] = pd.to_datetime(df.index).month
+        df["hour"] = df.index.to_series().apply(lambda d: d.hour + d.minute / 60)
+        df["nighttime"] = np.cos(2 * np.pi * df["hour"] / 24)
+        state_holidays = country_holidays("DE", subdiv=self.settings.state)
+        df["is_holiday"] = df.index.to_series().apply(lambda d: d in state_holidays)
+        return df
 
-class RandomForestPredictor(SimplePredictor):
-    def __init__(
-        self,
-        num_estimators=DEFAULT_NUM_ESTIMATORS,
-        max_depth=DEFAULT_MAX_DEPTH,
-        random_state=DEFAULT_RANDOM_STATE,
-    ):
-        self.x = [
+    def _split_data(self):
+        x = self.input_df[
+            [
                 "month",
                 "hour",
                 "is_weekday",
@@ -92,71 +112,73 @@ class RandomForestPredictor(SimplePredictor):
                 "nighttime",
                 "is_holiday",
             ]
-        self.random_forest_regressor = RandomForestRegressor(
-            n_estimators=num_estimators, max_depth=max_depth, random_state=random_state
-        )
+        ]
+        y = self.input_df["value"]
+        return train_test_split(x, y, test_size=0.2, random_state=42)
 
-    def _define_x_for_data(self, df):
-        df["day_of_week"] = pd.to_datetime(df.index).dayofweek
-        state_holidays = holidays.country_holidays("DE", subdiv=self._state)
-        df["is_holiday"] = df.index.to_series().apply(lambda d: d in state_holidays)
-        df["is_weekday"] = np.where(df["day_of_week"] < 5, True, False)
-        df["is_friday"] = np.where(df["day_of_week"] == 4, True, False)
-        df["is_saturday"] = np.where(df["day_of_week"] == 5, True, False)
-        df["is_sunday"] = np.where(df["day_of_week"] == 6, True, False)
-        df["month"] = pd.to_datetime(df.index).month
-        df["hour"] = df.index.to_series().apply(lambda d: d.hour + d.minute / 60)
-        df["nighttime"] = np.cos(2 * np.pi * df["hour"] / 24)
-        return df
+    def get_result(self):
+        return self.future_df
 
-    def _get_trained_rfr(self, df):
-        x = df[self.x]
-        y = df["value"]
-        x_train, x_test, y_train, y_test = train_test_split(
-            x, y, test_size=0.2, random_state=0
-        )
-        rfr = RandomForestRegressor()
+    def get_rmse(self):
+        return
+
+    @abc.abstractmethod
+    def create_prediction(self):
+        raise NotImplementedError()
+
+
+class RandomForestRegressionPredictor(AbstractPredictor):
+    def create_prediction(self):
+        # Slice df to period if input period given TODO
+        if self.settings.input_period:
+            pass
+
+        # Add X to input_df
+        self.input_df = self._add_input_fields(self.input_df)
+
+        # split into train and test
+        x_train, x_test, y_train, y_test = self._split_data()
+
+        # create model TODO this can probably be improved
         param_grid = {"n_estimators": [100], "max_depth": [10], "random_state": [56]}
-        grid_search = GridSearchCV(rfr, param_grid, cv=5)
+        grid_search = GridSearchCV(RandomForestRegressor(), param_grid, cv=5)
         grid_search.fit(x_train, y_train)
-        params = grid_search.best_params_
-        rfr = RandomForestRegressor(**params)
+        rfr = RandomForestRegressor(**grid_search.best_params_)
         rfr.fit(x_train, y_train)
-        return rfr
 
-    def create_prediction(self):
-        historic_load_profile_slice = self._historic_load_prodile_slice
-        data = list(
-            map(lambda t: [t.datetime, t.value], historic_load_profile_slice.timestamps)
+        # create future df / predicted df
+        # Add X to future df
+        future_df = self._create_future_df()
+
+        # use model on future df
+        future_df = future_df[
+            [
+                "month",
+                "hour",
+                "is_weekday",
+                "is_friday",
+                "is_saturday",
+                "is_sunday",
+                "nighttime",
+                "is_holiday",
+            ]
+        ]
+
+        # holidays should use values of sundays
+        df: pandas.DataFrame = self.input_df.loc[self.input_df["is_sunday"] == True]
+        mean_per_hour = df.groupby(["hour"], as_index=False)["value"].mean()
+        sunday_future_df = pd.merge(future_df, mean_per_hour, on="hour", how="left")
+
+        future_prediction_s = pd.Series(rfr.predict(future_df))
+        future_df["value"] = np.where(
+            future_df["is_holiday"] == False,
+            future_prediction_s,
+            sunday_future_df["value"],
         )
-        historic_df = pd.DataFrame(data, columns=["datetime", "value"])
-        historic_df = historic_df.set_index("datetime")
-        historic_df_with_x = self._define_x_for_data(historic_df)
-        rfr = self._get_trained_rfr(historic_df_with_x)
+        self.future_df = future_df["value"].round(3)
 
-        # create future df
-        got_values_until = historic_df.index.max()
-        end_date = got_values_until + datetime.timedelta(days=self._predict_days)
-        future_datetimes = pd.date_range(
-            got_values_until, end_date, freq="15min"
-        ).tolist()
+        # TODO rmse?
+        # rmse_npa = rfr.predict(x_train)
+        # rmse_1 = mean_squared_error(y_train, rmse_npa, squared=False)
 
-        future_df = pd.DataFrame({"datetime": future_datetimes})
-        future_df = future_df.set_index("datetime")
-        future_df = self._define_x_for_data(future_df)
-        x_future = future_df[self.x]
-
-        y_future = rfr.predict(x_future)
-        future_df["RFR"] = y_future
-        print(future_df.tail(200))
-        return future_df
-
-
-class PredictPlusPredictor(AbstractPredictor):
-    def create_prediction(self):
-        pass
-
-
-#  TODO Use multiple predictors and weight them
-#  TODO Evaluate by using mean absolute percentage error
-#  TODO ML Models: XGBoost, (Non-)linear Regressors, SVMs, Clustering
+        # print(f"{rmse_1}")

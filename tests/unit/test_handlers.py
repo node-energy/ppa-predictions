@@ -1,57 +1,74 @@
 import random
 import uuid
-from datetime import datetime, timedelta
+import datetime as dt
+import pandas as pd
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import MemoryUnitOfWork
-from src.services.load_data import APILoadDataRetriever
+from src.services.load_data import AbstractLoadDataRetriever
 from src.services.data_store import LocalDataStore
 from src.domain import commands
 from src.domain import model
+
+
+def create_df_with_constant_values(value=42):
+    start = dt.datetime.now().replace(microsecond=0, second=0, minute=0)
+    end = start + dt.timedelta(days=30)
+    df = pd.DataFrame(
+        {"datetime": pd.date_range(start=start, end=end, freq="15min"), "value": value}
+    )
+    df.set_index("datetime", inplace=True)
+    return df
+
+
+class FakeLoadDataReceiver(AbstractLoadDataRetriever):
+    def get_data(self, malo: str):
+        return create_df_with_constant_values()
 
 
 def setup_test():
     bus = MessageBus()
     bus.setup(
         MemoryUnitOfWork(),
-        APILoadDataRetriever(),
+        FakeLoadDataReceiver(),
         LocalDataStore(),
     )
     return bus
 
 
-class TestAddComponent:
-    def test_for_new_component(self, location):
+class TestHistoricData:
+    def test_update_historic_data_consumer_only(self, location):
         bus = setup_test()
+
+        location.residual_short = model.Consumer(malo="MALO-CONSUMER-01")
         bus.uow.locations.add(location)
-        component = bus.handle(
-            commands.CreateComponent(
-                type="producer", malo="1", location_ref=str(location.id)
-            )
-        )
-        assert bus.uow.components.get(str(component.id)) is not None
-        assert bus.uow.committed
+        bus.handle(commands.UpdateHistoricData(location_id=str(location.id)))
+
+        assert location.residual_short.historic_load_data is not None
+        assert (
+            location.residual_short.historic_load_data.df["value"] == 42
+        ).all() == True
+
+    def test_update_historic_data_with_production(self, location):
+        bus = setup_test()
+        location.residual_short = model.Consumer(malo="MALO-CONSUMER-01")
+        location.residual_long = model.Consumer(malo="MALO-PRODUCTION-01")
+        producer1 = model.Producer(malo="MALO-PRODUCER-01")
+        location.producers.append(producer1)
+
+        bus.uow.locations.add(location)
+        bus.handle(commands.UpdateHistoricData(location_id=str(location.id)))
+
+        assert location.residual_short.historic_load_data is not None
+        assert location.residual_long.historic_load_data is not None
+        assert location.producers.pop().historic_load_data is not None
 
 
-class TestAddHistoricLoadProfile:
-    def test_for_new_historic_load_profile(self, location):
+class TestPrediction:
+    def test_calculate_prediction_consumer_only(self, location):
         bus = setup_test()
+        historic_load_data = model.HistoricLoadData(df=create_df_with_constant_values())
+        location.residual_short = model.Consumer(malo="MALO-CONSUMER-01", historic_load_data=historic_load_data)
         bus.uow.locations.add(location)
-        timestamps = list()
-        component = bus.handle(
-            commands.CreateComponent(
-                type="producer", malo="1", location_ref=str(location.id)
-            )
-        )
-        for dt in (datetime.now() - timedelta(minutes=15 * n) for n in range(1000)):
-            timestamps.append(
-                model.TimeStamp(datetime=dt, value=random.uniform(0.0, 1.9))
-            )
-        cmd = commands.AddHistoricLoadProfile(
-            component_ref=str(component.id), timestamps=timestamps
-        )
-        bus.handle(cmd)
-        historic_load_profile: model.HistoricLoadProfile = (
-            bus.uow.historic_load_profiles.get_by_component_ref(str(component.id))
-        )
-        assert historic_load_profile is not None
-        assert len(historic_load_profile.timestamps) == 1000
+        bus.handle(commands.CalculatePredictions(location_id=str(location.id)))
+
+        assert len(location.predictions) == 2

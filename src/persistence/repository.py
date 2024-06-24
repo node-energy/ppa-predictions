@@ -1,8 +1,16 @@
+import io
+import pandas as pd
 from abc import ABC, abstractmethod
 from typing import Any, List, Type
 from src.domain import model
 from sqlalchemy.orm import Session
-from src.persistence.sqlalchemy import Project as DBProject, Base as DBBase
+from src.persistence.sqlalchemy import UUIDBase as DBBase
+from src.persistence.sqlalchemy import (
+    Location as DBLocation,
+    Component as DBComponent,
+    HistoricLoadData as DBHistoricLoadData,
+    Prediction as DBPrediction
+)
 
 
 class AbstractRepository[T](ABC):
@@ -125,35 +133,99 @@ class GenericSqlAlchemyRepository[T](AbstractRepository, ABC):
         raise NotImplementedError
 
 
-class ProjectRepositoryBase(AbstractRepository[model.Project], ABC):
+class LocationRepositoryBase(AbstractRepository[model.Location], ABC):
     pass
 
 
-class ProjectRepository(
-    GenericSqlAlchemyRepository[model.Project], ProjectRepositoryBase
+class LocationRepository(
+    GenericSqlAlchemyRepository[model.Location], LocationRepositoryBase
 ):
-    def db_to_domain(self, db_obj: DBProject) -> model.Project:
-        return model.Project(id=db_obj.id, name=db_obj.name)
+    def db_to_domain(self, db_obj: DBLocation) -> model.Location:
+        def historic_load_data_to_domain(
+            db_hld: DBHistoricLoadData,
+        ) -> model.HistoricLoadData:
+            if db_hld is None:
+                return None
+            f = io.BytesIO(db_hld.dataframe)
+            return model.HistoricLoadData(id=db_hld.id, df=pd.read_pickle(f))
 
-    def domain_to_db(self, domain_obj: model.Project) -> DBProject:
-        return DBProject(id=domain_obj.id, name=domain_obj.name)
+        def component_to_domain(db_component: DBComponent) -> model.Component:
+            if db_component is None:
+                return None
+            if db_component.type == "consumer":
+                return model.Consumer(
+                    id=db_component.id,
+                    malo=db_component.malo,
+                    historic_load_data=historic_load_data_to_domain(
+                        db_component.historic_load_data
+                    ),
+                )
+            else:
+                return model.Producer(
+                    id=db_component.id,
+                    malo=db_component.malo,
+                    historic_load_data=historic_load_data_to_domain(
+                        db_component.historic_load_data
+                    ),
+                )
 
+        def prediction_to_domain(db_prediction: DBPrediction) -> model.Prediction:
+            if db_prediction is None:
+                return None
+            f = io.BytesIO(db_prediction.dataframe)
+            return model.Prediction(
+                id=db_prediction.id,
+                type=db_prediction.type,
+                df=pd.read_pickle(f)
+            )
 
-class AbstractHistoriyLoadProfileRepository(AbstractRepository):
-    def get_by_component_ref(self, component_ref):
-        historic_load_profile = self._get_by_component_ref(component_ref)
-        if historic_load_profile:
-            self.seen.add(historic_load_profile)
-        return historic_load_profile
+        state = model.State(db_obj.state)
+        return model.Location(
+            id=db_obj.id,
+            state=state,
+            residual_short=component_to_domain(db_obj.residual_short),
+            residual_long=component_to_domain(db_obj.residual_long),
+            producers=[component_to_domain(p) for p in db_obj.producers],
+            predictions=[prediction_to_domain(p) for p in db_obj.predictions]
+        )
 
-    def _get_by_component_ref(self, component_ref):
-        raise NotImplementedError
+    def domain_to_db(self, domain_obj: model.Location) -> DBLocation:
+        def historic_load_data_to_db(hld: model.HistoricLoadData) -> DBHistoricLoadData:
+            if hld is None:
+                return None
+            f = io.BytesIO()
+            hld.df.to_pickle(f)
+            f.seek(0)
+            return DBHistoricLoadData(id=hld.id, dataframe=f.read())
 
+        def component_to_db(component: model.Component) -> DBComponent:
+            if component is None:
+                return None
+            type = "producer" if isinstance(component, model.Producer) else "consumer"
+            return DBComponent(
+                id=component.id,
+                type=type,
+                malo=component.malo,
+                historic_load_data=historic_load_data_to_db(
+                    component.historic_load_data
+                ),
+            )
 
-class HistoricLoadProfileMemoryRepository(
-    AbstractHistoriyLoadProfileRepository, GenericMemoryRepository
-):
-    def _get_by_component_ref(self, component_ref):
-        return next(
-            h for h in self._objs.values() if str(h.component.id) == component_ref
+        def prediction_to_db(prediction: model.Prediction) -> DBPrediction:
+            if prediction is None:
+                return None
+            f = io.BytesIO()
+            prediction.df.to_pickle(f)
+            f.seek(0)
+            return DBPrediction(id=prediction.id, type=prediction.type, dataframe=f.read())
+
+        residual_short_db = component_to_db(domain_obj.residual_short)
+        residual_short_db.residual_short_location_id = domain_obj.id
+        return DBLocation(
+            id=domain_obj.id,
+            state=domain_obj.state.value,
+            residual_short=component_to_db(domain_obj.residual_short),
+            residual_long=component_to_db(domain_obj.residual_long),
+            producers=[component_to_db(p) for p in domain_obj.producers],
+            predictions=[prediction_to_db(p) for p in domain_obj.predictions],
         )
