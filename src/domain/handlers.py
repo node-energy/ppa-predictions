@@ -74,7 +74,7 @@ def calculate_predictions(
         )
         end_date = start_date + datetime.timedelta(days=7)
         predictor_setting = predictor.PredictorSettings(
-            state=predictor.State.BERLIN,
+            state=location.state,
             output_period=predictor.Period(start=start_date, end=end_date),
         )
         rf_predictor = predictor.RandomForestRegressionPredictor(
