@@ -39,7 +39,6 @@ class AggregateRoot(Entity):
         cls.__hash__ = AggregateRoot.__hash__
 
 
-# value object
 class State(str, Enum):
     baden_wurttemberg = "BW"
     bayern = "BY"
@@ -144,7 +143,6 @@ class HistoricLoadData(Entity):
     df: pd.DataFrame
 
     def __eq__(self, other):
-        #assert pd.testing.assert_frame_equal(self.df, other.df)
         return self.id == other.id
 
     def __gt__(self, other: HistoricLoadData):

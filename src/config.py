@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     recipient_consumption: str = "verbrauchsprognosen@ppa-mailbox.node.energy"
     recipient_production: str = "erzeugungsprognosen@ppa-mailbox.node.energy"
     update_cron: str = "20 16 * * *"
+    send_predictions_enabled: bool = False
 
     optinode_db_connection_string: str
 

@@ -138,7 +138,7 @@ class LocationRepositoryBase(AbstractRepository[model.Location], ABC):
 
 
 class LocationRepository(
-    GenericSqlAlchemyRepository[model.Location], LocationRepositoryBase
+    GenericSqlAlchemyRepository[model.Location], AbstractRepository[model.Location]#LocationRepositoryBase
 ):
     def db_to_domain(self, db_obj: DBLocation) -> model.Location:
         def historic_load_data_to_domain(

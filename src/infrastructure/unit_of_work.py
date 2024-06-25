@@ -10,7 +10,7 @@ from src.persistence.sqlalchemy import Location
 
 class AbstractUnitOfWork(abc.ABC):
     historic_load_data: repository.AbstractRepository
-    locations: repository.AbstractRepository
+    locations: repository.AbstractRepository[Location]
 
     def __enter__(self) -> AbstractUnitOfWork:
         return self
@@ -23,7 +23,7 @@ class AbstractUnitOfWork(abc.ABC):
 
     def collect_new_events(self):  # TODO better solution
         return None
-        for obj in self.projects.seen:
+        for obj in self.locations.seen:
             while obj.events:
                 yield obj.events.pop(0)
 
@@ -38,7 +38,7 @@ class AbstractUnitOfWork(abc.ABC):
 
 class MemoryUnitOfWork(AbstractUnitOfWork):
     def __init__(self):
-        self.locations = repository.GenericMemoryRepository({})
+        self.locations = repository.GenericMemoryRepository[Location]({})
         self.committed = False
 
     def _commit(self):

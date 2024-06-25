@@ -100,20 +100,12 @@ def calculate_predictions(
         uow.commit()  #  TODO save to DB
 
 
-def add_project(cmd: commands.CreateProject, uow: unit_of_work.AbstractUnitOfWork):
-    with uow:
-        project = model.Project(id=uuid4(), name=cmd.name)
-        uow.projects.add(project)
-        uow.commit()
-        return project
-
-
-def add_company(cmd: commands.CreateCompany, uow: unit_of_work.AbstractUnitOfWork):
-    with uow:
-        company = model.Company(id=uuid4(), name=cmd.name)
-        uow.companies.add(company)
-        uow.commit()
-        return company
+def send_predictions(
+    cmd: commands.SendPredictions,
+    uow: unit_of_work.AbstractUnitOfWork
+):
+    if settings.send_predictions_enabled:
+        pass
 
 
 def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfWork):
@@ -123,18 +115,7 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
         )
         uow.locations.add(location)
         uow.commit()
-        add_default_scope(events.LocationCreated(str(location.id)), uow)
         return location
-
-
-def add_default_scope(
-    evt: events.LocationCreated, uow: unit_of_work.AbstractUnitOfWork
-):
-    add_scope(commands.CreateScope(location_ref=evt.location_ref), uow)
-
-
-def add_scope(cmd: commands.CreateScope, uow: unit_of_work.AbstractUnitOfWork):
-    pass
 
 
 def add_customer(cmd: commands.CreateCustomer):
@@ -295,38 +276,13 @@ def make_all_predictions(
     logger.info("Finished making predictions for all components")
 
 
-def make_prediction_for_component(
-    cmd: commands.MakePredictionForComponent,
-    uow: unit_of_work.AbstractUnitOfWork,
-):
-    pass
-
-
-def create_all_schedules(
-    _: commands.CreateAllSchedules,
-    uow: unit_of_work.AbstractUnitOfWork,
-):
-    pass
-
-
-def create_schedule_for_component(
-    cmd: commands.CreateScheduleForComponent,
-    uow: unit_of_work.AbstractUnitOfWork,
-):
-    pass
-
-
 EVENT_HANDLERS = {
     events.CustomerCreated: [test_handler],
-    events.LocationCreated: [add_default_scope],
     events.HistoricLoadProfileReceived: [create_prediction],
 }
 
 COMMAND_HANDLERS = {
-    commands.CreateProject: add_project,
-    commands.CreateCompany: add_company,
     commands.CreateLocation: add_location,
-    commands.CreateCustomer: add_customer,
     commands.GetComponents: get_components,
     commands.CreateComponent: add_component,
     commands.FetchLoadData: fetch_load_data,
@@ -335,9 +291,6 @@ COMMAND_HANDLERS = {
     commands.FetchAllHistoricData: fetch_all_historic_data,
     commands.FetchHistoricDataForComponent: fetch_historic_data_for_component,
     commands.MakeAllPredictions: make_all_predictions,
-    commands.MakePredictionForComponent: make_prediction_for_component,
-    commands.CreateAllSchedules: create_all_schedules,
-    commands.CreateScheduleForComponent: create_schedule_for_component,
     commands.UpdateHistoricData: update_historic_data,
     commands.CalculatePredictions: calculate_predictions,
 }

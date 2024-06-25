@@ -19,29 +19,14 @@ class CalculatePredictions(Command):
 
 
 @dataclass
-class CreateCustomer(Command):
-    pass
-
-
-@dataclass
-class CreateProject(Command):
-    name: str
-
-
-@dataclass
-class CreateCompany(Command):
-    name: str
+class SendPredictions(Command):
+    location_id: str
 
 
 @dataclass
 class CreateLocation(Command):
     state: State  # value obj
     residual_short_malo: str
-
-
-@dataclass
-class CreateScope(Command):
-    location_ref: str
 
 
 @dataclass
@@ -70,7 +55,6 @@ class MakePrediction(Command):
     predictor: Optional[str]
 
 
-# new
 @dataclass
 class FetchAllHistoricData(Command):
     pass
@@ -85,19 +69,3 @@ class FetchHistoricDataForComponent(Command):
 @dataclass
 class MakeAllPredictions(Command):
     pass
-
-
-@dataclass
-class MakePredictionForComponent(Command):
-    component_id: str
-    predict_days: Optional[int] = 14
-
-
-@dataclass
-class CreateAllSchedules(Command):
-    pass
-
-
-@dataclass
-class CreateScheduleForComponent(Command):
-    component_id: str
