@@ -1,6 +1,8 @@
+import json
 import uuid
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, TypeAdapter
 from .common import get_bus, BasePagination
 from src.infrastructure.message_bus import MessageBus
@@ -82,3 +84,18 @@ def update_location_historic_data(bus: Annotated[MessageBus, Depends(get_bus)], 
 def calculate_location_pretictions(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str):
     bus.handle(commands.CalculatePredictions(location_id=location_id))
     return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.get("/{location_id}/predictions")
+def list_location_predictions(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str, type: str | None = None):
+    prediction_response_body = []
+    with bus.uow as uow:
+        location: DLocation = uow.locations.get(id=uuid.UUID(location_id))
+        if location:
+            for prediction in location.predictions:
+                if not type or (type and prediction.type == type):
+                    prediction_response_body.append({
+                        "type": prediction.type,
+                        "df":   json.loads(prediction.df.to_json(orient='index', date_format='iso', date_unit='s'))
+                    })
+    return JSONResponse(prediction_response_body)
