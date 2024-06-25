@@ -7,8 +7,6 @@ from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 from src.services.load_data import APILoadDataRetriever, OptinodeDataRetriever
 from src.services.data_store import LocalDataStore
-from src.api import components as components_api
-from src.api import projects as projects_api
 from src.api import locations as locations_api
 from src.utils.decorators import repeat_at
 from src.domain import commands
@@ -36,8 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(components_api.router)
-app.include_router(projects_api.router)
+
 app.include_router(locations_api.router)
 
 

@@ -6,7 +6,7 @@ from src.config import settings
 
 
 class AbstractLoadDataRetriever(abc.ABC):
-    def get_data(self, malo: str):
+    def get_data(self, malo: str) -> pd.DataFrame:
         raise NotImplementedError()
 
 

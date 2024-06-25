@@ -28,7 +28,6 @@ def update_historic_data(
 ):
     with uow:
         location: model.Location = uow.locations.get(
-            #cmd.location_id
             UUID(cmd.location_id)
         )
 
@@ -63,7 +62,6 @@ def calculate_predictions(
 ):
     with uow:
         location: model.Location = uow.locations.get(
-            #cmd.location_id
             UUID(cmd.location_id)
         )
 

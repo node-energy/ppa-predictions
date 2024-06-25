@@ -67,7 +67,7 @@ class GenericMemoryRepository[T](AbstractRepository):
         self._objs: dict[Any, T] = objs
 
     def _add(self, obj: T) -> T:
-        if (id := str(obj.id)) not in self._objs:
+        if (id := obj.id) not in self._objs:
             self._objs[id] = obj
         return obj
 
@@ -78,7 +78,7 @@ class GenericMemoryRepository[T](AbstractRepository):
         return list(self._objs.values())
 
     def _update(self, obj: T) -> T:
-        id = str(obj.id)
+        id = obj.id
         self._objs[id] = obj
         return obj
 
