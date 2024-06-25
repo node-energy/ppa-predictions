@@ -77,7 +77,7 @@ class Component(UUIDBase):
     residual_long_location: Mapped[Optional[Location]] = relationship(back_populates="residual_long", foreign_keys=[residual_long_location_id])
     producer_location_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("locations.id"))
     producer_location: Mapped[Optional[Location]] = relationship(back_populates="producers", foreign_keys=[producer_location_id])
-    historic_load_data: Mapped[Optional[HistoricLoadData]] = relationship(back_populates="component", foreign_keys="HistoricLoadData.component_id")
+    historic_load_data: Mapped[Optional[HistoricLoadData]] = relationship(back_populates="component", foreign_keys="HistoricLoadData.component_id", cascade="all, delete-orphan")
 
 
 class Prediction(UUIDBase):

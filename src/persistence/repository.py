@@ -113,7 +113,7 @@ class GenericSqlAlchemyRepository[T](AbstractRepository, ABC):
 
     def _update(self, obj: T) -> T:
         db_obj = self.domain_to_db(obj)
-        o = self._session.merge(db_obj, load=True)
+        o = self._session.merge(db_obj)
         self._session.flush()
         self._session.refresh(o)
         return self.db_to_domain(o)
