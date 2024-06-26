@@ -3,18 +3,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     debug: bool = False
-    db_connection_string: str
+    db_connection_string: str | None = None
     cors_origin: str = "https://localhost:3000"
     smtp_host: str = "smtp.office365.com"
     smtp_port: int = 587
     smtp_email: str = "kai.timofejew@node.energy"
-    smtp_pass: str
+    smtp_pass: str | None = None
     recipient_consumption: str = "verbrauchsprognosen@ppa-mailbox.node.energy"
     recipient_production: str = "erzeugungsprognosen@ppa-mailbox.node.energy"
     update_cron: str = "20 16 * * *"
     send_predictions_enabled: bool = False
 
-    optinode_db_connection_string: str
+    optinode_db_connection_string: str | None = None
 
     model_config = SettingsConfigDict(env_file="src/.env")
 
