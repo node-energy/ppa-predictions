@@ -71,14 +71,13 @@ class Location(AggregateRoot):
     def has_production(self):
         return self.producers and len(self.producers) > 0
 
-    @property
-    def most_recent_prediction(self):
-        return []
+    def get_most_recent_prediction(self, prediction_type):
+        return next(p for p in sorted(self.predictions) if p.type == prediction_type)
 
     def calculate_local_consumption(self):
         if not self.has_production:
             return (
-                self.residual_short.historic_load_data.df  # TODO exception if no historic data is available
+                self.residual_short.historic_load_data.df  # TODO invariant: exception if no historic data is available
             )  # no production, we just use location "Bezug".
         # else: add all producer historic data, substract "Einspeisung" and add "Bezug"
         else:

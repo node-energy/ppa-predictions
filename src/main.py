@@ -1,13 +1,15 @@
 import logging
 import sys
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
 from src.config import settings
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 from src.services.load_data import APILoadDataRetriever, OptinodeDataRetriever
 from src.services.data_store import LocalDataStore
 from src.api import locations as locations_api
+from src.api.middleware import ApiKeyAuthMiddleware
 from src.utils.decorators import repeat_at
 from src.domain import commands
 
@@ -22,6 +24,7 @@ logger.addHandler(stream_handler)
 
 app = FastAPI(debug=True)
 
+
 origins = [
     settings.cors_origin,
 ]
@@ -32,6 +35,11 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.add_middleware(
+    ApiKeyAuthMiddleware,
+    api_key = settings.api_key
 )
 
 

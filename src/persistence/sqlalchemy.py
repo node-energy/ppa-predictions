@@ -1,7 +1,6 @@
 from __future__ import annotations
 from uuid import UUID
 from datetime import datetime, timezone
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
 from sqlalchemy import Column, DateTime, String, ForeignKey, PickleType
 from typing import Optional
@@ -22,9 +21,6 @@ class Location(UUIDBase):
     residual_short: Mapped[Component] = relationship(back_populates="residual_short_location", foreign_keys="Component.residual_short_location_id")
     producers: Mapped[list[Component]] = relationship(back_populates="producer_location", foreign_keys="Component.producer_location_id")
     predictions: Mapped[list[Prediction]] = relationship(back_populates="location", foreign_keys="Prediction.location_id")
-    # predictions: Mapped[list[Prediction]] = relationship(
-    #     back_populates="locations", lazy="noload"
-    # )
 
 
 class Component(UUIDBase):

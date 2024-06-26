@@ -81,8 +81,14 @@ def update_location_historic_data(bus: Annotated[MessageBus, Depends(get_bus)], 
 
 
 @router.post("/{location_id}/calculate_predictions")
-def calculate_location_pretictions(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str):
+def calculate_location_predictions(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str):
     bus.handle(commands.CalculatePredictions(location_id=location_id))
+    return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.post("/{location_id}/send_predictions")
+def send_predictions(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str):
+    bus.handle(commands.SendPredictions(location_id=location_id))
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
 
