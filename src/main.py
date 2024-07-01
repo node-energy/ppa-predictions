@@ -2,11 +2,10 @@ import logging
 import sys
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import APIKeyHeader
 from src.config import settings
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
-from src.services.load_data import APILoadDataRetriever, OptinodeDataRetriever
+from src.services.load_data import OptinodeDataRetriever
 from src.services.data_store import LocalDataStore
 from src.api import locations as locations_api
 from src.api.middleware import ApiKeyAuthMiddleware
@@ -65,4 +64,4 @@ async def root():
 @repeat_at(settings.update_cron, logger=logger)
 async def fetch_energy_data():
     bus = MessageBus()
-    bus.handle(commands.FetchLoadData())
+    bus.handle(commands.UpdatePredictAll())
