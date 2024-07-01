@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import abc
-import io
 import uuid
 import pandas as pd
 from datetime import datetime
 from enum import Enum
-from uuid import UUID
-from typing import List, Literal, Optional
+from typing import Optional
 from dataclasses import dataclass, field
 
 
@@ -72,14 +70,15 @@ class Location(AggregateRoot):
         return self.producers and len(self.producers) > 0
 
     def get_most_recent_prediction(self, prediction_type):
-        return next(p for p in sorted(self.predictions) if p.type == prediction_type)
+        return next((p for p in sorted(self.predictions) if p.type == prediction_type), None)
 
     def calculate_local_consumption(self):
+        result = None
         if not self.has_production:
-            return (
-                self.residual_short.historic_load_data.df  # TODO invariant: exception if no historic data is available
-            )  # no production, we just use location "Bezug".
-        # else: add all producer historic data, substract "Einspeisung" and add "Bezug"
+            if not self.residual_short.historic_load_data:
+                return None
+                # self.events.append(events.MissingData())
+            return self.residual_short.historic_load_data.df
         else:
             if not self.residual_long:
                 return (
@@ -104,6 +103,11 @@ class Location(AggregateRoot):
             long_prediction_df = total_production_df - total_consumption_df
             long_prediction_df[long_prediction_df < 0] = 0
             self.predictions.append(Prediction(df=long_prediction_df, type=PredictionType.RESIDUAL_LONG))
+        # self.events.append(events.PredictionsCreated(location_id=str(self.id)))  # leads to send out predictions
+
+    def add_prediction(self, prediction: Prediction):
+        self.predictions.append(prediction)
+        # self.events.append(events.PredictionAdded(location_id=str(self.id)))
 
     def add_component(
         self, component: Component

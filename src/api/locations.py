@@ -105,3 +105,9 @@ def list_location_predictions(bus: Annotated[MessageBus, Depends(get_bus)], loca
                         "df":   json.loads(prediction.df.to_json(orient='index', date_format='iso', date_unit='s'))
                     })
     return JSONResponse(prediction_response_body)
+
+
+@router.post("/send_updated_predictions")
+def send_updated_predictions_for_all(bus: Annotated[MessageBus, Depends(get_bus)]):
+    bus.handle(commands.UpdatePredictAll())
+    return Response(status_code=status.HTTP_202_ACCEPTED)

@@ -9,6 +9,11 @@ class Command:
 
 
 @dataclass
+class UpdatePredictAll(Command):
+    pass
+
+
+@dataclass
 class UpdateHistoricData(Command):
     location_id: str
 

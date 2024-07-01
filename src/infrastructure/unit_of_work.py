@@ -22,7 +22,6 @@ class AbstractUnitOfWork(abc.ABC):
         self._commit()
 
     def collect_new_events(self):  # TODO better solution
-        return None
         for obj in self.locations.seen:
             while obj.events:
                 yield obj.events.pop(0)

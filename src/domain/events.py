@@ -28,5 +28,10 @@ class HistoricLoadProfileReceived(Event):
 
 
 @dataclass
-class PredictionCreated(Event):
-    prediction_ref: UUID
+class PredictionsCreated(Event):
+    location_id: str
+
+
+@dataclass
+class PredictionAdded(Event):
+    location_id: str
