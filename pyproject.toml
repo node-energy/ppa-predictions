@@ -18,11 +18,14 @@ croniter = "^2.0.1"
 sqlalchemy = "^2.0.28"
 alembic = "^1.13.1"
 pydantic-settings = "^2.2.1"
-mako-utils = {version = "*", source = "node-energy"}
-energy-data-converter = {version = "*", source = "node-energy"}
-django-pandas-timeseries = {version = "*", source = "node-energy"}
-django-date-sliceable = {version = "*", source = "node-energy"}
+
+# optinode and its dependencies
 optinode = {version = "^2024.7.1", source = "node-energy"}
+django-date-sliceable = {version = "*", source = "node-energy"}
+django-pandas-timeseries = {version = "*", source = "node-energy"}
+energy-data-converter = {version = "*", source = "node-energy"}
+mako-utils = {version = "*", source = "node-energy"}
+factory-boy = "^3.3.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
