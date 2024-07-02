@@ -1,7 +1,7 @@
 import abc
 import os
 import datetime as dt
-from typing import Iterable
+from typing import Collection
 
 import pandas as pd
 from src.config import settings
@@ -66,7 +66,7 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
         return locations[0]
 
     @staticmethod
-    def _all_locations_have_equal_energy_data(locations: Iterable, start_date: dt.datetime) -> bool:
+    def _all_locations_have_equal_energy_data(locations: Collection, start_date: dt.datetime) -> bool:
         if len(locations) == 1:
             return True
         energy_data = [loc.get_load_profile(start=start_date, measurand=Measurand.POSITIVE) for loc in locations]
