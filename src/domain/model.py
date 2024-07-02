@@ -70,7 +70,9 @@ class Location(AggregateRoot):
         return self.producers and len(self.producers) > 0
 
     def get_most_recent_prediction(self, prediction_type):
-        return next((p for p in sorted(self.predictions) if p.type == prediction_type), None)
+        return next(
+            (p for p in sorted(self.predictions) if p.type == prediction_type), None
+        )
 
     def calculate_local_consumption(self):
         result = None
@@ -92,17 +94,31 @@ class Location(AggregateRoot):
         )  # TODO currently we only allow one producer per location
 
     def calculate_location_residual_loads(self):
-        total_consumption_df = next((p.df for p in self.predictions if p.type == PredictionType.CONSUMPTION), None)
-        total_production_df = next((p.df for p in self.predictions if p.type == PredictionType.PRODUCTION), None)
+        total_consumption_df = next(
+            (p.df for p in self.predictions if p.type == PredictionType.CONSUMPTION),
+            None,
+        )
+        total_production_df = next(
+            (p.df for p in self.predictions if p.type == PredictionType.PRODUCTION),
+            None,
+        )
 
-        short_prediction_df = total_consumption_df - total_production_df if self.has_production else total_consumption_df
+        short_prediction_df = (
+            total_consumption_df - total_production_df
+            if self.has_production
+            else total_consumption_df
+        )
         short_prediction_df[short_prediction_df < 0] = 0
-        self.predictions.append(Prediction(df=short_prediction_df, type=PredictionType.RESIDUAL_SHORT))
+        self.predictions.append(
+            Prediction(df=short_prediction_df, type=PredictionType.RESIDUAL_SHORT)
+        )
 
         if self.has_production:
             long_prediction_df = total_production_df - total_consumption_df
             long_prediction_df[long_prediction_df < 0] = 0
-            self.predictions.append(Prediction(df=long_prediction_df, type=PredictionType.RESIDUAL_LONG))
+            self.predictions.append(
+                Prediction(df=long_prediction_df, type=PredictionType.RESIDUAL_LONG)
+            )
         # self.events.append(events.PredictionsCreated(location_id=str(self.id)))  # leads to send out predictions
 
     def add_prediction(self, prediction: Prediction):
@@ -153,10 +169,10 @@ class HistoricLoadData(Entity):
 
 
 class PredictionType(str, Enum):
-    CONSUMPTION = 'consumption'
-    PRODUCTION = 'production'
-    RESIDUAL_SHORT = 'short'
-    RESIDUAL_LONG = 'long'
+    CONSUMPTION = "consumption"
+    PRODUCTION = "production"
+    RESIDUAL_SHORT = "short"
+    RESIDUAL_LONG = "long"
 
 
 @dataclass(kw_only=True)

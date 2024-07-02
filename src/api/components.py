@@ -17,7 +17,7 @@ async def get_bus():
 
 class Component(BaseModel):
     id: str | None
-    type: str = Field(default='producer')
+    type: str = Field(default="producer")
     location_ref: str = Field(default="1")
     malo: str
 
@@ -30,14 +30,21 @@ async def get_components(bus: MessageBus = Depends(get_bus)):
 
 @router.post("/")
 async def add_component(fa_component: Component, bus: MessageBus = Depends(get_bus)):
-    component = bus.handle(commands.CreateComponent(
-        type='producer',
-        location_ref=fa_component.location_ref,
-        malo=fa_component.malo))
+    component = bus.handle(
+        commands.CreateComponent(
+            type="producer",
+            location_ref=fa_component.location_ref,
+            malo=fa_component.malo,
+        )
+    )
     return {"message": f"Component ID: {component.id}"}
 
 
 @router.post("/{component_id}/load_profile")
-async def add_historic_load_profile(component_id: str, bus: MessageBus = Depends(get_bus)):
-    bus.handle(commands.AddHistoricLoadProfile(component_ref=component_id, timestamps=[]))
+async def add_historic_load_profile(
+    component_id: str, bus: MessageBus = Depends(get_bus)
+):
+    bus.handle(
+        commands.AddHistoricLoadProfile(component_ref=component_id, timestamps=[])
+    )
     return Response(status_code=status.HTTP_201_CREATED)

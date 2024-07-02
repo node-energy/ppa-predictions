@@ -9,7 +9,7 @@ from src.persistence.sqlalchemy import (
     Location as DBLocation,
     Component as DBComponent,
     HistoricLoadData as DBHistoricLoadData,
-    Prediction as DBPrediction
+    Prediction as DBPrediction,
 )
 
 
@@ -138,7 +138,8 @@ class LocationRepositoryBase(AbstractRepository[model.Location], ABC):
 
 
 class LocationRepository(
-    GenericSqlAlchemyRepository[model.Location], AbstractRepository[model.Location]#LocationRepositoryBase
+    GenericSqlAlchemyRepository[model.Location],
+    AbstractRepository[model.Location],  # LocationRepositoryBase
 ):
     def db_to_domain(self, db_obj: DBLocation) -> model.Location:
         def historic_load_data_to_domain(
@@ -174,9 +175,7 @@ class LocationRepository(
                 return None
             f = io.BytesIO(db_prediction.dataframe)
             return model.Prediction(
-                id=db_prediction.id,
-                type=db_prediction.type,
-                df=pd.read_pickle(f)
+                id=db_prediction.id, type=db_prediction.type, df=pd.read_pickle(f)
             )
 
         state = model.State(db_obj.state)
@@ -186,7 +185,7 @@ class LocationRepository(
             residual_short=component_to_domain(db_obj.residual_short),
             residual_long=component_to_domain(db_obj.residual_long),
             producers=[component_to_domain(p) for p in db_obj.producers],
-            predictions=[prediction_to_domain(p) for p in db_obj.predictions]
+            predictions=[prediction_to_domain(p) for p in db_obj.predictions],
         )
 
     def domain_to_db(self, domain_obj: model.Location) -> DBLocation:
@@ -217,7 +216,9 @@ class LocationRepository(
             f = io.BytesIO()
             prediction.df.to_pickle(f)
             f.seek(0)
-            return DBPrediction(id=prediction.id, type=prediction.type, dataframe=f.read())
+            return DBPrediction(
+                id=prediction.id, type=prediction.type, dataframe=f.read()
+            )
 
         residual_short_db = component_to_db(domain_obj.residual_short)
         residual_short_db.residual_short_location_id = domain_obj.id

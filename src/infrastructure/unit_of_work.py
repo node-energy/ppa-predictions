@@ -58,7 +58,9 @@ class SqlAlchemyUnitOfWork(AbstractUnitOfWork):
     def __init__(self, session_factory=None):
         if session_factory is None:
             session_factory = sessionmaker(
-                bind=create_engine(settings.db_connection_string)#, isolation_level="REPEATABLE READ")
+                bind=create_engine(
+                    settings.db_connection_string
+                )  # , isolation_level="REPEATABLE READ")
             )
 
         self.session_factory = session_factory

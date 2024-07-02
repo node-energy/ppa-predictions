@@ -27,7 +27,7 @@ def update_and_predict_all(
     with uow:
         for location in uow.locations.get_all():
             update_historic_data(
-                 commands.UpdateHistoricData(location_id=str(location.id)), uow, ldr
+                commands.UpdateHistoricData(location_id=str(location.id)), uow, ldr
             )
             calculate_predictions(
                 commands.CalculatePredictions(location_id=str(location.id)), uow
@@ -43,6 +43,7 @@ def update_historic_data(
     ldr: load_data.AbstractLoadDataRetriever,
 ):
     with uow:
+
         def get_historic_load_data(malo: str):
             result = None
             try:
@@ -147,7 +148,9 @@ def send_predictions(
     if settings.send_predictions_enabled:
         with uow:
             location: model.Location = uow.locations.get(UUID(cmd.location_id))
-            short_prediction = location.get_most_recent_prediction(model.PredictionType.RESIDUAL_SHORT)
+            short_prediction = location.get_most_recent_prediction(
+                model.PredictionType.RESIDUAL_SHORT
+            )
             if short_prediction:
                 dst.save_file(short_prediction, malo=location.residual_short.malo)
 

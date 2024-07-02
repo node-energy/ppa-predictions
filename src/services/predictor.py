@@ -10,7 +10,8 @@ from enum import Enum
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split, GridSearchCV
-#from src.domain.value_objects import Period
+
+# from src.domain.value_objects import Period
 
 
 @dataclass
@@ -21,7 +22,6 @@ class Period:
     def __post_init__(self):
         self.start = self.start.replace(hour=0, minute=0, second=0, microsecond=0)
         self.end = self.end.replace(hour=0, minute=0, second=0, microsecond=0)
-
 
 
 class Entity:

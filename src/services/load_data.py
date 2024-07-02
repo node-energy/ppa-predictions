@@ -39,7 +39,9 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
     def get_data(self, malo: str):
         from optinode.webserver.configurator.models import Counter
 
-        counter = Counter.objects.get(metering_or_market_location__number=malo)  # TODO malo is not unique?
+        counter = Counter.objects.get(
+            metering_or_market_location__number=malo
+        )  # TODO malo is not unique?
         start_date = dt.datetime.now() - dt.timedelta(days=14)
         df_meter: pd.DataFrame = counter.get_as_load_profile(start=start_date)
         df_meter = df_meter.reset_index()

@@ -1,6 +1,6 @@
 import logging
 import sys
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.config import settings
 from src.infrastructure.message_bus import MessageBus
@@ -16,7 +16,9 @@ from src.domain import commands
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 stream_handler = logging.StreamHandler(sys.stdout)
-log_formatter = logging.Formatter("%(asctime)s [%(processName)s: %(process)d] [%(threadName)s: %(thread)d] [%(levelname)s] %(name)s: %(message)s")
+log_formatter = logging.Formatter(
+    "%(asctime)s [%(processName)s: %(process)d] [%(threadName)s: %(thread)d] [%(levelname)s] %(name)s: %(message)s"
+)
 stream_handler.setFormatter(log_formatter)
 logger.addHandler(stream_handler)
 
@@ -36,10 +38,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(
-    ApiKeyAuthMiddleware,
-    api_key = settings.api_key
-)
+app.add_middleware(ApiKeyAuthMiddleware, api_key=settings.api_key)
 
 
 app.include_router(locations_api.router)
