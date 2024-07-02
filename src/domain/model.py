@@ -60,6 +60,7 @@ class State(str, Enum):
 class Location(AggregateRoot):
     __hash__ = AggregateRoot.__hash__
     state: State
+    alias: Optional[str] = None
     producers: list[Producer] = field(default_factory=list)
     residual_long: Optional[Producer] = None
     residual_short: Consumer

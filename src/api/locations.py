@@ -19,6 +19,7 @@ class ResidualShort(BaseModel):
 
 class Location(BaseModel):
     state: str
+    alias: Optional[str] = None
     id: Optional[str] = None
     residual_short: ResidualShort
 
@@ -33,6 +34,7 @@ def get_locations(bus: Annotated[MessageBus, Depends(get_bus)]):
             Location(
                 id=str(loc.id),
                 state=loc.state,
+                alias=loc.alias,
                 residual_short=ResidualShort(malo=loc.residual_short.malo),
             )
             for loc in locations
@@ -53,6 +55,7 @@ def get_location(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str)
             Location(
                 id=str(location.id),
                 state=location.state,
+                alias=location.alias,
                 residual_short=ResidualShort(malo=location.residual_short.malo),
             )
         )
@@ -63,12 +66,17 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
     state = State(fa_location.state)  # TODO primitives?
     residual_short = ResidualShort(malo=fa_location.residual_short.malo)
     location: DLocation = bus.handle(
-        commands.CreateLocation(state=state, residual_short_malo=residual_short.malo)
+        commands.CreateLocation(
+            state=state,
+            alias=fa_location.alias,
+            residual_short_malo=residual_short.malo,
+        )
     )
     return Location.model_validate(
         Location(
             id=str(location.id),
             state=location.state,
+            alias=location.alias,
             residual_short=ResidualShort(malo=location.residual_short.malo),
         )
     )

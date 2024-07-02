@@ -17,6 +17,7 @@ class Location(UUIDBase):
     __tablename__ = "locations"
 
     state: Mapped[str]
+    alias: Mapped[Optional[str]]
     residual_long: Mapped[Optional[Component]] = relationship(
         back_populates="residual_long_location",
         foreign_keys="Component.residual_long_location_id",
