@@ -1,5 +1,10 @@
+from typing import Generic, TypeVar
+
 from pydantic import BaseModel
 from src.infrastructure.message_bus import MessageBus
+
+
+T = TypeVar('T')
 
 
 async def get_bus():
@@ -10,6 +15,6 @@ async def get_bus():
         pass
 
 
-class BasePagination[T](BaseModel):
+class BasePagination(BaseModel, Generic[T]):
     items: list[T]
     total: int

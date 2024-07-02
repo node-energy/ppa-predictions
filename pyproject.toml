@@ -6,12 +6,12 @@ authors = ["kaitimofejew <kai.timofejew@node.energy>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "~3.11"
 fastapi = "^0.109.0"
 uvicorn = "^0.27.0"
 pytest = "^7.4.4"
 scikit-learn = "^1.4.0"
-pandas = "^2.2.0"
+pandas = "<1.5.3"   # constraint from optinode package
 holidays = "^0.41"
 pyarrow = "^15.0.0"
 croniter = "^2.0.1"
@@ -19,12 +19,26 @@ sqlalchemy = "^2.0.28"
 alembic = "^1.13.1"
 pydantic-settings = "^2.2.1"
 
+# optinode and its dependencies
+optinode = {version = "^2024.7.1", source = "node-energy"}
+django-date-sliceable = {version = "*", source = "node-energy"}
+django-pandas-timeseries = {version = "*", source = "node-energy"}
+energy-data-converter = {version = "*", source = "node-energy"}
+mako-utils = {version = "*", source = "node-energy"}
+factory-boy = "^3.3.0"
+
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
 mypy = "^1.2.0"
 setuptools = "^69.0.3"
 httpx = "^0.27.0"
 psycopg2-binary = "^2.9.9"
+
+
+[[tool.poetry.source]]
+name = "node-energy"
+url = "https://pypi.node.energy/"
+priority = "explicit"
 
 [build-system]
 requires = ["poetry-core"]
