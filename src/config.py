@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     smtp_pass: str
     recipient_consumption: str = "verbrauchsprognosen@ppa-mailbox.node.energy"
     recipient_production: str = "erzeugungsprognosen@ppa-mailbox.node.energy"
-    update_cron: str = "20 16 * * *"
+    update_cron: str = "10 45 * * *"
     send_predictions_enabled: bool = False
     api_key: str = "node"
 
