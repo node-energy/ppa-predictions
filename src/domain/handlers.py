@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import datetime
+from traceback import format_exception
 from uuid import uuid4, UUID
 from src.config import settings
 from src.domain import commands, events
@@ -17,8 +18,23 @@ class InvalidRef(Exception):
     pass
 
 
-def test_handler(event: events.CustomerCreated):
-    print("TEST")
+def update_and_predict_all(
+    _: commands.UpdatePredictAll,
+    uow: unit_of_work.AbstractUnitOfWork,
+    ldr: load_data.AbstractLoadDataRetriever,
+    dst: data_store.AbstractDataStore,
+):
+    with uow:
+        for location in uow.locations.get_all():
+            update_historic_data(
+                commands.UpdateHistoricData(location_id=str(location.id)), uow, ldr
+            )
+            calculate_predictions(
+                commands.CalculatePredictions(location_id=str(location.id)), uow
+            )
+            send_predictions(
+                commands.SendPredictions(location_id=str(location.id)), uow, dst
+            )
 
 
 def update_historic_data(
@@ -27,16 +43,32 @@ def update_historic_data(
     ldr: load_data.AbstractLoadDataRetriever,
 ):
     with uow:
-        location: model.Location = uow.locations.get(
-            UUID(cmd.location_id)
-        )
 
-        historic_load_data_residual_short_df = ldr.get_data(
-            location.residual_short.malo
-        )
-        location.residual_short.historic_load_data = model.HistoricLoadData(
-            df=historic_load_data_residual_short_df
-        )
+        def get_historic_load_data(malo: str):
+            result = None
+            try:
+                df = ldr.get_data(malo)
+                result = model.HistoricLoadData(df=df)
+            except:
+                logger.error("Could not get historic data for malo %s", malo)
+            return result
+
+        location: model.Location = uow.locations.get(UUID(cmd.location_id))
+
+        # historic_load_data_residual_short_df = ldr.get_data(
+        #     location.residual_short.malo
+        # )
+
+        if (hld := get_historic_load_data(location.residual_short.malo)) is not None:
+            location.residual_short.historic_load_data = hld
+
+        # location.residual_short.historic_load_data = get_historic_load_data(
+        #     location.residual_short.malo
+        # )
+        #
+        # location.residual_short.historic_load_data = model.HistoricLoadData(
+        #     df=historic_load_data_residual_short_df
+        # )
 
         if location.has_production:
             historic_load_data_residual_long_df = ldr.get_data(
@@ -53,7 +85,7 @@ def update_historic_data(
             )
 
         uow.locations.update(location)
-        uow.commit()  #  TODO save to DB
+        uow.commit()
 
 
 def calculate_predictions(
@@ -61,12 +93,12 @@ def calculate_predictions(
     uow: unit_of_work.AbstractUnitOfWork,
 ):
     with uow:
-        location: model.Location = uow.locations.get(
-            UUID(cmd.location_id)
-        )
+        location: model.Location = uow.locations.get(UUID(cmd.location_id))
 
         # Verbrauchsprognose
         local_consumption_df = location.calculate_local_consumption()
+        if local_consumption_df is None:
+            return
 
         start_date = datetime.datetime.combine(
             datetime.date.today() + datetime.timedelta(days=1),
@@ -83,7 +115,7 @@ def calculate_predictions(
         rf_predictor.create_prediction()
         local_consumption_prediction_df = rf_predictor.get_result()
 
-        location.predictions.append(
+        location.add_prediction(
             model.Prediction(
                 df=local_consumption_prediction_df,
                 type=model.PredictionType.CONSUMPTION,
@@ -97,15 +129,30 @@ def calculate_predictions(
         # Überschuss / Bezug
         location.calculate_location_residual_loads()
         uow.locations.update(location)
-        uow.commit()  #  TODO save to DB
+        uow.commit()
+
+
+def send_predictions_evt(
+    evt: events.PredictionsCreated,
+    uow: unit_of_work,
+    dst: data_store.AbstractDataStore,
+):
+    send_predictions(commands.SendPredictions(location_id=evt.location_id), uow, dst)
 
 
 def send_predictions(
     cmd: commands.SendPredictions,
-    uow: unit_of_work.AbstractUnitOfWork
+    uow: unit_of_work.AbstractUnitOfWork,
+    dst: data_store.AbstractDataStore,
 ):
     if settings.send_predictions_enabled:
-        pass
+        with uow:
+            location: model.Location = uow.locations.get(UUID(cmd.location_id))
+            short_prediction = location.get_most_recent_prediction(
+                model.PredictionType.RESIDUAL_SHORT
+            )
+            if short_prediction:
+                dst.save_file(short_prediction, malo=location.residual_short.malo)
 
 
 def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfWork):
@@ -118,179 +165,21 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
         return location
 
 
-def add_customer(cmd: commands.CreateCustomer):
-    customer = model.Customer(id=uuid4())
-    return customer
-
-
-def get_components(cmd: commands.GetComponents, uow: unit_of_work.AbstractUnitOfWork):
-    components = uow.components.get_all()
-    return components
-
-
-def add_component(cmd: commands.CreateComponent, uow: unit_of_work.AbstractUnitOfWork):
-    with uow:
-        location = uow.locations.get(cmd.location_ref)
-        component = model.Component(
-            id=uuid4(), malo=cmd.malo, type=cmd.type, location=location
-        )
-        uow.components.add(component)
-        uow.commit()
-    return component
-
-
-def add_historic_load_profile(
-    cmd: commands.AddHistoricLoadProfile, uow: unit_of_work.AbstractUnitOfWork
-):
-    with uow:
-        component = uow.components.get(cmd.component_ref)
-        if component is None:
-            raise InvalidRef()
-
-        hlp = model.HistoricLoadProfile(
-            id=uuid4(), component=component, timestamps=cmd.timestamps
-        )
-        uow.historic_load_profiles.add(hlp)
-        uow.commit()
-
-
-def fetch_load_data(
-    _: commands.FetchLoadData,
-    uow: unit_of_work.AbstractUnitOfWork,
-    ldr: load_data.AbstractLoadDataRetriever,
-):
-    print("FETCHED DATA")
-    components: list[model.Component] = uow.components.get_all()
-    for component in components:  # TODO big loop
-        try:
-            energy_data = ldr.get_data(component.malo)
-            hlp = model.HistoricLoadProfile.from_dataframe(
-                uuid4(), component, energy_data
-            )
-            with uow:
-                uow.historic_load_profiles.add(
-                    hlp
-                )  # TODO only add if not existing, aggregate?
-        except Exception as exc:
-            logger.error(exc)
-            continue
-
-
-def make_prediction(cmd: commands.MakePrediction, uow: unit_of_work.AbstractUnitOfWork):
-    with uow:
-        component = uow.components.get(cmd.component_ref)
-        if component is None:
-            raise Exception  # raise InvalidComponentID
-
-
-def create_prediction(
-    evt: events.HistoricLoadProfileReceived,
-    uow: unit_of_work.AbstractUnitOfWork,
-    dst: data_store.AbstractDataStore,
-):
-    with uow:  # Should be part of domain model
-        component = uow.components.get(evt.component_ref)
-        load_profile = uow.historic_load_profiles.get_by_component_ref(
-            component.id
-        ).to_dataframe()  # TODO to slice
-        predictr = predictor.RandomForestPredictor()
-        predictr.configure(
-            historic_load_profile_slice=load_profile, state=component.location.state
-        )
-        prediction_df = predictr.create_prediction()
-        prediction = model.Prediction.from_dataframe(
-            uuid4(), component, datetime.datetime.now(), prediction_df
-        )
-        uow.predictions.add(prediction)
-        store_prediction_file(events.PredictionCreated(prediction.id), uow, dst)
-
-
-def store_prediction_file(
-    evt: events.PredictionCreated,
-    uow: unit_of_work.AbstractUnitOfWork,
-    dst: data_store.AbstractDataStore,
-):
-    prediction = uow.predictions.get(evt.prediction_ref)
-    buffer = prediction.to_csv_buffer()
-    recipient = (
-        settings.recipient_production
-        if prediction.component.type == "producer"
-        else settings.recipient_consumption
-    )
-    dst.save_file(
-        file_name=f"{prediction.component.malo}_{prediction.created}",
-        buffer=buffer,
-        recipient=recipient,
-    )
-
-
-# new
-def fetch_all_historic_data(
-    _: commands.FetchAllHistoricData,
-    uow: unit_of_work.AbstractUnitOfWork,
-    ldr: load_data.AbstractLoadDataRetriever,
-):
-    logger.info("Start fetching data for all components")
-    with uow:
-        components: list[model.Component] = uow.components.get_all()
-        for component in components:
-            fetch_historic_data_for_component(
-                commands.FetchHistoricDataForComponent(component_id=str(component.id)),
-                uow,
-                ldr,
-            )
-    logger.info("Finished fetching data for all components")
-
-
-def fetch_historic_data_for_component(
-    cmd: commands.FetchHistoricDataForComponent,
-    uow: unit_of_work.AbstractUnitOfWork,
-    ldr: load_data.AbstractLoadDataRetriever,
-):
-    with uow:
-        component = uow.components.get(cmd.component_id)
-        historic_df = ldr.get_data(component.malo)
-        historic_load_profile = model.HistoricLoadProfile.from_dataframe(
-            uuid4(), component, historic_df
-        )
-        uow.historic_load_profiles.add(historic_load_profile)
-        uow.commit()
-
-
-def make_all_predictions(
-    _: commands.MakeAllPredictions,
-    uow: unit_of_work.AbstractUnitOfWork,
-    ldr: load_data.AbstractLoadDataRetriever,
-):
-    logger.info("Start making predictions for all components")
-    with uow:
-        components: list[model.Component] = uow.components.get_all()
-        for component in components:
-            component.predict()
-
-            fetch_historic_data_for_component(
-                commands.FetchHistoricDataForComponent(component_id=str(component.id)),
-                uow,
-                ldr,
-            )
-    logger.info("Finished making predictions for all components")
-
-
 EVENT_HANDLERS = {
-    events.CustomerCreated: [test_handler],
-    events.HistoricLoadProfileReceived: [create_prediction],
+    # events.CustomerCreated: [test_handler],
+    # events.HistoricLoadProfileReceived: [create_prediction],
+    # events.Predict: [start_prediction],
+    # events.DataUpdateRequired: [update_data],
+    # events.DataUpdated: [create_prediction],
+    # events.PredictionRequired [create_prediction],
+    # events.PredictionCreated: [send_prediction],
+    events.PredictionsCreated: [send_predictions_evt]
 }
 
 COMMAND_HANDLERS = {
     commands.CreateLocation: add_location,
-    commands.GetComponents: get_components,
-    commands.CreateComponent: add_component,
-    commands.FetchLoadData: fetch_load_data,
-    commands.MakePrediction: make_prediction,
-    # new
-    commands.FetchAllHistoricData: fetch_all_historic_data,
-    commands.FetchHistoricDataForComponent: fetch_historic_data_for_component,
-    commands.MakeAllPredictions: make_all_predictions,
     commands.UpdateHistoricData: update_historic_data,
     commands.CalculatePredictions: calculate_predictions,
+    commands.SendPredictions: send_predictions,
+    commands.UpdatePredictAll: update_and_predict_all,
 }

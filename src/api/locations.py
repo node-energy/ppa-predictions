@@ -75,27 +75,53 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
 
 
 @router.post("/{location_id}/update_location_data")
-def update_location_historic_data(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str):
+def update_location_historic_data(
+    bus: Annotated[MessageBus, Depends(get_bus)], location_id: str
+):
     bus.handle(commands.UpdateHistoricData(location_id=location_id))
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
 
 @router.post("/{location_id}/calculate_predictions")
-def calculate_location_pretictions(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str):
+def calculate_location_predictions(
+    bus: Annotated[MessageBus, Depends(get_bus)], location_id: str
+):
     bus.handle(commands.CalculatePredictions(location_id=location_id))
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
 
+@router.post("/{location_id}/send_predictions")
+def send_predictions(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str):
+    bus.handle(commands.SendPredictions(location_id=location_id))
+    return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
 @router.get("/{location_id}/predictions")
-def list_location_predictions(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str, type: str | None = None):
+def list_location_predictions(
+    bus: Annotated[MessageBus, Depends(get_bus)],
+    location_id: str,
+    type: str | None = None,
+):
     prediction_response_body = []
     with bus.uow as uow:
         location: DLocation = uow.locations.get(id=uuid.UUID(location_id))
         if location:
             for prediction in location.predictions:
                 if not type or (type and prediction.type == type):
-                    prediction_response_body.append({
-                        "type": prediction.type,
-                        "df":   json.loads(prediction.df.to_json(orient='index', date_format='iso', date_unit='s'))
-                    })
+                    prediction_response_body.append(
+                        {
+                            "type": prediction.type,
+                            "df": json.loads(
+                                prediction.df.to_json(
+                                    orient="index", date_format="iso", date_unit="s"
+                                )
+                            ),
+                        }
+                    )
     return JSONResponse(prediction_response_body)
+
+
+@router.post("/send_updated_predictions")
+def send_updated_predictions_for_all(bus: Annotated[MessageBus, Depends(get_bus)]):
+    bus.handle(commands.UpdatePredictAll())
+    return Response(status_code=status.HTTP_202_ACCEPTED)

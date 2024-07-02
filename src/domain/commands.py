@@ -9,6 +9,11 @@ class Command:
 
 
 @dataclass
+class UpdatePredictAll(Command):
+    pass
+
+
+@dataclass
 class UpdateHistoricData(Command):
     location_id: str
 
@@ -38,7 +43,7 @@ class GetComponents(Command):
 class CreateComponent(Command):
     location_ref: str
     malo: str
-    type: Literal['producer', 'consumer']
+    type: Literal["producer", "consumer"]
 
 
 @dataclass
