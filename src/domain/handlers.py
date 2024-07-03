@@ -94,22 +94,28 @@ def calculate_predictions(
         rf_predictor = predictor.RandomForestRegressionPredictor(
             input_df=local_consumption_df, settings=predictor_setting
         )
-        rf_predictor.create_prediction()
-        local_consumption_prediction_df = rf_predictor.get_result()
+        try:
+            rf_predictor.create_prediction()
 
-        location.add_prediction(
-            model.Prediction(
-                df=local_consumption_prediction_df,
-                type=model.PredictionType.CONSUMPTION,
+            local_consumption_prediction_df = rf_predictor.get_result()
+
+            location.add_prediction(
+                model.Prediction(
+                    df=local_consumption_prediction_df,
+                    type=model.PredictionType.CONSUMPTION,
+                )
             )
-        )
 
-        # Erzeuerungsprognose Enercast
-        if location.has_production:
-            pass
+            # Erzeuerungsprognose Enercast
+            if location.has_production:
+                pass
 
-        # Überschuss / Bezug
-        location.calculate_location_residual_loads()
+            # Überschuss / Bezug
+            location.calculate_location_residual_loads()
+        except Exception as exc:
+            logger.error(f"Could not create prediction for location {location.alias}")
+            logger.error(exc)
+
         uow.locations.update(location)
         uow.commit()
 
