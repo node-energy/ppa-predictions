@@ -1,7 +1,7 @@
 import io
 import pandas as pd
 from abc import ABC, abstractmethod
-from typing import Any, List, Type
+from typing import Any, List, Type, TypeVar, Generic
 from src.domain import model
 from sqlalchemy.orm import Session
 from src.persistence.sqlalchemy import UUIDBase as DBBase
@@ -13,7 +13,10 @@ from src.persistence.sqlalchemy import (
 )
 
 
-class AbstractRepository[T](ABC):
+T = TypeVar('T')
+
+
+class AbstractRepository(ABC, Generic[T]):
     def __init__(self):
         self.seen = set()
 
@@ -61,7 +64,7 @@ class AbstractRepository[T](ABC):
         raise NotImplementedError
 
 
-class GenericMemoryRepository[T](AbstractRepository):
+class GenericMemoryRepository(AbstractRepository, Generic[T]):
     def __init__(self, objs: dict[Any, T]):
         super().__init__()
         self._objs: dict[Any, T] = objs
@@ -86,7 +89,7 @@ class GenericMemoryRepository[T](AbstractRepository):
         return self._objs.pop(id)
 
 
-class GenericSqlAlchemyRepository[T](AbstractRepository, ABC):
+class GenericSqlAlchemyRepository(AbstractRepository, ABC, Generic[T]):
     def __init__(self, session: Session, db_cls: Type[DBBase]) -> None:
         super().__init__()
         self._session = session
