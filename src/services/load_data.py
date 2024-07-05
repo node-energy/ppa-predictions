@@ -26,16 +26,6 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
         os.environ["SECRET_KEY"] = "topsecret"
         os.environ["DATABASE_URL"] = settings.optinode_db_connection_string
         os.environ[
-            "DB_DJANGO_HOST"
-        ] = "optinode-production-read-replica.postgres.database.azure.com"
-        os.environ["DB_PORT"] = "5432"
-        os.environ["DB_NAME"] = "optinode"
-        os.environ["DB_USER"] = "Development"
-        os.environ["DB_PASSWORD"] = ""
-        os.environ["EMAIL_HOST"] = "smtp.office365.com"
-        os.environ["EMAIL_HOST_USER"] = "horst.schlemmer@node.energy"
-        os.environ["EMAIL_HOST_PASSWORD"] = "dummy"
-        os.environ[
             "DJANGO_SETTINGS_MODULE"
         ] = "optinode.webserver.config.settings.package"
         import django
