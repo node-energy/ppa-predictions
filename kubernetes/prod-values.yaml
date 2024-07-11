@@ -1,0 +1,8 @@
+configuration:
+  debug: ""
+  mail_recipient_cons: ""
+  send_predictions_enabled: ""
+  smtp_host: ""
+  smtp_port: ""
+  smtp_email: ""
+  update_cron: ""
