@@ -31,6 +31,8 @@ jobs:
           context: .
           tags: ${{ env.IMAGE_NAME }}
           outputs: type=docker,dest=/tmp/testimage.tar
+          secrets: |
+            PYPI_EXTRA_INDEX_URL=${{ secrets.PYPI_EXTRA_INDEX_URL }}
       - name: upload image artifact
         uses: actions/upload-artifact@v4
         with:
