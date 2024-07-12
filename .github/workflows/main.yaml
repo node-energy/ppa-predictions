@@ -10,7 +10,9 @@ on:
 
 env:
   IMAGE_NAME: "nodeenergy.azurecr.io/ppa-predictions:${{ github.sha }}"
-  CONTEXT: "optinode-staging"
+  RESOURCE_GROUP_NAME: "optinode-production"
+  CLUSTER_NAME: "optinode"
+  NAMESPACE: "ppa"
 
 jobs:
   build:
@@ -50,9 +52,13 @@ jobs:
       - name: Run pytest in Docker container
         run: docker run -v ./tests/:/code/tests --rm ${{ env.IMAGE_NAME }} pytest
 
-  publish_image:
-    if: ${{ github.ref == 'refs/heads/main' }}
+  publish_image_and_deploy:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     needs: [ test ]
     steps:
     - name: Login to GitHub Container Registry
@@ -78,50 +84,39 @@ jobs:
         password: ${{ secrets.AZURE_CLIENT_PASSWORD }}
     - run: docker push ${{ env.IMAGE_NAME }}
 
-  deploy:
-    if: ${{ github.ref == 'refs/heads/main' }}
-    needs: [ publish_image ]
-    permissions:
-      actions: read
-      contents: read
-      id-token: write
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    - name: Log in with Azure
+      uses: azure/login@v1
+      with:
+        creds: '${{ secrets.AZURE_CREDENTIALS }}'
 
-      - name: Log in with Azure
-        uses: azure/login@v1
-        with:
-          creds: '${{ secrets.AZURE_CREDENTIALS }}'
+    - name: Set up kubelogin for non-interactive login
+      uses: azure/use-kubelogin@v1
+      with:
+        kubelogin-version: 'v0.0.25'
 
-      - name: Set up kubelogin for non-interactive login
-        uses: azure/use-kubelogin@v1
-        with:
-          kubelogin-version: 'v0.0.25'
+    - name: Get K8s context
+      uses: azure/aks-set-context@v3
+      with:
+        resource-group: ${{ env.RESOURCE_GROUP }}
+        cluster-name: ${{ env.CLUSTER_NAME }}
+        admin: 'false'
+        use-kubelogin: 'true'
 
-      - name: Get K8s context
-        uses: azure/aks-set-context@v3
-        with:
-          resource-group: ${{ env.RESOURCE_GROUP }}
-          cluster-name: ${{ env.CLUSTER_NAME }}
-          admin: 'false'
-          use-kubelogin: 'true'
+    - name: Bake deployment
+      uses: azure/k8s-bake@v2.4
+      with:
+        renderEngine: "helm"
+        helmChart: kubernetes
+        helm-version: "v3.13.3"
+      id: bake
 
-      - name: Bake deployment
-        uses: azure/k8s-bake@v2.4
-        with:
-          renderEngine: "helm"
-          helmChart: kubernetes
-          helm-version: "v3.13.3"
-        id: bake
-
-      - name: Deploy application
-        uses: Azure/k8s-deploy@v4
-        with:
-          action: deploy
-          manifests: ${{ steps.bake.outputs.manifestsBundle }}
-          namespace: ppa
-          images: ${{ env.IMAGE_NAME }}
+    - name: Deploy application
+      uses: Azure/k8s-deploy@v4
+      with:
+        action: deploy
+        manifests: ${{ steps.bake.outputs.manifestsBundle }}
+        namespace: ${{ env.NAMESPACE }}
+        images: ${{ env.IMAGE_NAME }}
 
 
 
