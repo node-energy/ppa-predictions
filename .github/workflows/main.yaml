@@ -13,9 +13,7 @@ env:
   RESOURCE_GROUP_NAME: "optinode-production"
   CLUSTER_NAME: "optinode"
   NAMESPACE: "ppa"
-  PYPI_USER: ${{ secrets.PYPI_USER }}
-  PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-  PYPI_EXTRA_INDEX_URL: ${{ secrets.PYPI_EXTRA_INDEX_URL }}
+  PIP_EXTRA_INDEX_URL: ${{ secrets.PIP_EXTRA_INDEX_URL }}
 
 jobs:
   build:
@@ -25,20 +23,37 @@ jobs:
         uses: actions/checkout@v4
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Build and export
+      - name: Build and export production image
         uses: docker/build-push-action@v5
         with:
           context: .
           tags: ${{ env.IMAGE_NAME }}
+          target: "production-stage"
+          outputs: type=docker,dest=/tmp/prodimage.tar
+          secrets: |
+            PIP_EXTRA_INDEX_URL=${{ secrets.PIP_EXTRA_INDEX_URL }}
+
+      - name: Build and export test image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          tags: ${{ env.IMAGE_NAME }}
+          target: "test-stage"
           outputs: type=docker,dest=/tmp/testimage.tar
           secrets: |
-            PYPI_EXTRA_INDEX_URL=${{ secrets.PYPI_EXTRA_INDEX_URL }}
+            PIP_EXTRA_INDEX_URL=${{ secrets.PIP_EXTRA_INDEX_URL }}  
 
       - name: upload image artifact
         uses: actions/upload-artifact@v4
         with:
           name: testimage
           path: /tmp/testimage.tar
+
+      - name: upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prodimage
+          path: /tmp/prodimage.tar
 
   test:
     runs-on: ubuntu-latest
@@ -52,6 +67,7 @@ jobs:
         with:
           name: testimage
           path: /tmp
+
       - name: Load image
         run: docker load --input /tmp/testimage.tar
 
@@ -77,10 +93,10 @@ jobs:
     - name: Download artifact
       uses: actions/download-artifact@v4
       with:
-        name: testimage
+        name: prodimage
         path: /tmp
     - name: Load image
-      run: docker load --input /tmp/testimage.tar
+      run: docker load --input /tmp/prodimage.tar
 
     - name: 'Push image'
       uses: azure/docker-login@v1

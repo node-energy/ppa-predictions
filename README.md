@@ -16,7 +16,16 @@ Currently Python 3.11 must be used due to the opti.node requirement.
 
 ## Build (Docker)
 
-```docker build -t ppa-predictions .```
+```export PIP_EXTRA_INDEX_URL="https://username:password@pypi.node.energy"```
+
+### Production Image
+
+```docker build -t ppa-prediction:v1 --target production-stage --secret id=PIP_EXTRA_INDEX_URL .```
+
+### Test Image
+
+```docker build -t ppa-prediction-test:v1 --target test-stage --secret id=PIP_EXTRA_INDEX_URL .```
+
 
 ## Test
 
