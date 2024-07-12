@@ -1,8 +1,5 @@
 FROM python:3.11.9-bookworm as requirements-stage
 
-ARG PYPI_USERNAME
-ARG PYPI_PASSWORD
-
 RUN pip install poetry==1.7.1
 
 ENV POETRY_NO_INTERACTION=1 \
@@ -22,6 +19,8 @@ WORKDIR /code
 
 COPY --from=requirements-stage /tmp/requirements.txt /code/requirements.txt
 
-RUN pip install --no-cache-dir -r /code/requirements.txt --extra-index-url ${PYPI_EXTRA_INDEX_URL}
+RUN --mount=type=secret,id=PYPI_EXTRA_INDEX_URL \
+        export PYPI_EXTRA_INDEX_URL=$(cat /run/secrets/PYPI_EXTRA_INDEX_URL) \
+        && pip install --no-cache-dir -r /code/requirements.txt --extra-index-url ${PYPI_EXTRA_INDEX_URL}
 
 COPY ./src /code/src
