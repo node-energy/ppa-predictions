@@ -1,4 +1,4 @@
-FROM python:3.12.1-bookworm as requirements-stage
+FROM python:3.11.9-bookworm as requirements-stage
 
 RUN pip install poetry==1.6.1
 
@@ -13,7 +13,7 @@ COPY pyproject.toml poetry.lock /tmp/
 
 RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
 
-FROM python:3.12.1-bookworm
+FROM python:3.11.9-bookworm
 
 WORKDIR /code
 
