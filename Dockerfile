@@ -1,6 +1,9 @@
 FROM python:3.11.9-bookworm as requirements-stage
 
-RUN pip install poetry==1.6.1
+ARG PYPI_USERNAME
+ARG PYPI_PASSWORD
+
+RUN pip install poetry==1.7.1
 
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
@@ -19,6 +22,6 @@ WORKDIR /code
 
 COPY --from=requirements-stage /tmp/requirements.txt /code/requirements.txt
 
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+RUN pip install --no-cache-dir -r /code/requirements.txt --extra-index-url ${PYPI_EXTRA_INDEX_URL}
 
 COPY ./src /code/src

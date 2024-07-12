@@ -13,6 +13,9 @@ env:
   RESOURCE_GROUP_NAME: "optinode-production"
   CLUSTER_NAME: "optinode"
   NAMESPACE: "ppa"
+  PYPI_USER: ${{ secrets.PYPI_USER }}
+  PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+  PYPI_EXTRA_INDEX_URL: ${{ secrets.PYPI_EXTRA_INDEX_URL }}
 
 jobs:
   build:
