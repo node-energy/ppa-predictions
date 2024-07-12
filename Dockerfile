@@ -1,6 +1,7 @@
 FROM python:3.11.9-bookworm as requirements-stage
 
 RUN pip install poetry==1.7.1
+RUN pip install httpx==0.27.0
 
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
