@@ -30,7 +30,7 @@ class SendPredictions(Command):
 
 @dataclass
 class CreateLocation(Command):
-    state: State  # value obj
+    state: State
     alias: Optional[str]
     residual_short_malo: str
 
