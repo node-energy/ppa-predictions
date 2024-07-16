@@ -1,7 +1,7 @@
 import json
 import uuid
 from typing import Annotated, Optional
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, TypeAdapter
 from .common import get_bus, BasePagination
@@ -110,12 +110,16 @@ def list_location_predictions(
     location_id: str,
     type: str | None = None,
 ):
+    body_envelope = {}
     prediction_response_body = []
+    body_envelope["results"] = prediction_response_body
+    num = 0
     with bus.uow as uow:
         location: DLocation = uow.locations.get(id=uuid.UUID(location_id))
         if location:
             for prediction in location.predictions:
                 if not type or (type and prediction.type == type):
+                    num += 1
                     prediction_response_body.append(
                         {
                             "type": prediction.type,
@@ -126,10 +130,13 @@ def list_location_predictions(
                             ),
                         }
                     )
-    return JSONResponse(prediction_response_body)
+    body_envelope["num"] = num
+    return JSONResponse(body_envelope)
 
 
 @router.post("/send_updated_predictions")
-def send_updated_predictions_for_all(bus: Annotated[MessageBus, Depends(get_bus)]):
-    bus.handle(commands.UpdatePredictAll())
+def send_updated_predictions_for_all(bus: Annotated[MessageBus, Depends(get_bus)], background_tasks: BackgroundTasks):
+    background_tasks.add_task(bus.handle, commands.UpdatePredictAll())
+
+    #bus.handle(commands.UpdatePredictAll())
     return Response(status_code=status.HTTP_202_ACCEPTED)

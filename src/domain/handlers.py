@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import datetime
 from uuid import uuid4, UUID
@@ -17,12 +18,67 @@ class InvalidRef(Exception):
     pass
 
 
+def update_and_predict_all_impr(
+    _: commands.UpdatePredictAll,
+    uow: unit_of_work.AbstractUnitOfWork,
+    ldr: load_data.AbstractLoadDataRetriever,
+    dst: data_store.AbstractDataStore,
+):
+    logger.warning("START")
+    with uow:
+        locs = uow.locations.get_all()
+
+        for location in locs:
+            update_historic_data(
+                commands.UpdateHistoricData(location_id=str(location.id)), uow, ldr
+            )
+
+        asyncio.run(test1(locs, uow, ldr, dst))
+    logger.warning("FINISHED")
+
+
+async def test1(locations: list[model.Location], uow, ldr, dst):
+    async def update_historic_data_async(cmd, uow, ldr):
+        update_historic_data(cmd, uow, ldr)
+
+    async def calculate_predictions_async(cmd, uow):
+        calculate_predictions(cmd, uow)
+
+    async def send_predictions_async(cmd, uow, dst):
+        send_predictions(cmd, uow, dst)
+
+    tasks = set()
+
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = []
+        for location in locations:
+            futures.append(executor.submit(
+                calculate_predictions,
+                cmd=commands.CalculatePredictions(location_id=str(location)),
+                uow=uow
+            ))
+            for future in concurrent.futures.as_completed(futures):
+                print("completed")
+
+    async with asyncio.TaskGroup() as group:
+        for location in locations:
+            task = group.create_task(
+                send_predictions_async(
+                    commands.SendPredictions(location_id=str(location.id)), uow, dst
+                )
+            )
+            tasks.add(task)
+            task.add_done_callback(tasks.discard)
+
+
 def update_and_predict_all(
     _: commands.UpdatePredictAll,
     uow: unit_of_work.AbstractUnitOfWork,
     ldr: load_data.AbstractLoadDataRetriever,
     dst: data_store.AbstractDataStore,
 ):
+    logger.warning("Start updating data and creating predictions for all locations")
     with uow:
         for location in uow.locations.get_all():
             update_historic_data(
@@ -34,6 +90,7 @@ def update_and_predict_all(
             send_predictions(
                 commands.SendPredictions(location_id=str(location.id)), uow, dst
             )
+    logger.warning("Finished updating data and creating predictions for all locations")
 
 
 def update_historic_data(
@@ -99,6 +156,7 @@ def calculate_predictions(
 
             local_consumption_prediction_df = rf_predictor.get_result()
 
+            #location.delete_oldest_predictions(keep=1)
             location.add_prediction(
                 model.Prediction(
                     df=local_consumption_prediction_df,
