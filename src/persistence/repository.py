@@ -185,6 +185,7 @@ class LocationRepository(
         return model.Location(
             id=db_obj.id,
             state=state,
+            alias=db_obj.alias,
             residual_short=component_to_domain(db_obj.residual_short),
             residual_long=component_to_domain(db_obj.residual_long),
             producers=[component_to_domain(p) for p in db_obj.producers],
@@ -228,6 +229,7 @@ class LocationRepository(
         return DBLocation(
             id=domain_obj.id,
             state=domain_obj.state.value,
+            alias=domain_obj.alias,
             residual_short=component_to_db(domain_obj.residual_short),
             residual_long=component_to_db(domain_obj.residual_long),
             producers=[component_to_db(p) for p in domain_obj.producers],

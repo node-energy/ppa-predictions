@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import datetime
-from traceback import format_exception
 from uuid import uuid4, UUID
 from src.config import settings
 from src.domain import commands, events
@@ -49,40 +48,23 @@ def update_historic_data(
             try:
                 df = ldr.get_data(malo)
                 result = model.HistoricLoadData(df=df)
-            except:
+            except Exception as exc:
                 logger.error("Could not get historic data for malo %s", malo)
+                logger.error(exc)
             return result
 
         location: model.Location = uow.locations.get(UUID(cmd.location_id))
 
-        # historic_load_data_residual_short_df = ldr.get_data(
-        #     location.residual_short.malo
-        # )
-
         if (hld := get_historic_load_data(location.residual_short.malo)) is not None:
             location.residual_short.historic_load_data = hld
 
-        # location.residual_short.historic_load_data = get_historic_load_data(
-        #     location.residual_short.malo
-        # )
-        #
-        # location.residual_short.historic_load_data = model.HistoricLoadData(
-        #     df=historic_load_data_residual_short_df
-        # )
-
         if location.has_production:
-            historic_load_data_residual_long_df = ldr.get_data(
-                location.residual_long.malo
-            )
-            location.residual_long.historic_load_data = model.HistoricLoadData(
-                df=historic_load_data_residual_long_df
-            )
+            if (hld := get_historic_load_data(location.residual_long.malo)) is not None:
+                location.residual_long.historic_load_data = hld
 
         for producer in location.producers:
-            historic_load_data_producer_df = ldr.get_data(producer.malo)
-            producer.historic_load_data = model.HistoricLoadData(
-                df=historic_load_data_producer_df
-            )
+            if (hld := get_historic_load_data(producer.malo)) is not None:
+                producer.historic_load_data = hld
 
         uow.locations.update(location)
         uow.commit()
@@ -112,22 +94,28 @@ def calculate_predictions(
         rf_predictor = predictor.RandomForestRegressionPredictor(
             input_df=local_consumption_df, settings=predictor_setting
         )
-        rf_predictor.create_prediction()
-        local_consumption_prediction_df = rf_predictor.get_result()
+        try:
+            rf_predictor.create_prediction()
 
-        location.add_prediction(
-            model.Prediction(
-                df=local_consumption_prediction_df,
-                type=model.PredictionType.CONSUMPTION,
+            local_consumption_prediction_df = rf_predictor.get_result()
+
+            location.add_prediction(
+                model.Prediction(
+                    df=local_consumption_prediction_df,
+                    type=model.PredictionType.CONSUMPTION,
+                )
             )
-        )
 
-        # Erzeuerungsprognose Enercast
-        if location.has_production:
-            pass
+            # Erzeuerungsprognose Enercast
+            if location.has_production:
+                pass
 
-        # Überschuss / Bezug
-        location.calculate_location_residual_loads()
+            # Überschuss / Bezug
+            location.calculate_location_residual_loads()
+        except Exception as exc:
+            logger.error(f"Could not create prediction for location {location.alias}")
+            logger.error(exc)
+
         uow.locations.update(location)
         uow.commit()
 
@@ -158,7 +146,9 @@ def send_predictions(
 def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfWork):
     with uow:
         location = model.Location(
-            state=cmd.state, residual_short=model.Consumer(malo=cmd.residual_short_malo)
+            state=cmd.state,
+            alias=cmd.alias,
+            residual_short=model.Consumer(malo=cmd.residual_short_malo),
         )
         uow.locations.add(location)
         uow.commit()

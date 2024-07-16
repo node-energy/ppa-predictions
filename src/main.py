@@ -61,6 +61,6 @@ async def root():
 
 @app.on_event("startup")  # TODO replace with APScheduler
 @repeat_at(settings.update_cron, logger=logger)
-async def fetch_energy_data():
+def fetch_energy_data():
     bus = MessageBus()
     bus.handle(commands.UpdatePredictAll())

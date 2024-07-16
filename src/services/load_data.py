@@ -12,7 +12,7 @@ from optinode.webserver.configurator.enums import Measurand
 
 
 class AbstractLoadDataRetriever(abc.ABC):
-    def get_data(self, market_location_number: str) -> pd.Series:
+    def get_data(self, market_location_number: str) -> pd.DataFrame:
         raise NotImplementedError()
 
 
@@ -32,21 +32,21 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
 
         django.setup()
 
-    def get_data(self, market_location_number: str) -> pd.Series:
+    def get_data(self, market_location_number: str) -> pd.DataFrame:
         start_date = dt.datetime.now(tz=TIMEZONE_BERLIN) - dt.timedelta(days=14)
         malo = self._get_market_location(market_location_number, start_date)
 
         energy_data: pd.Series = malo.get_load_profile(start=start_date, measurand=Measurand.POSITIVE)
         energy_data.name = "value"
         energy_data.index.name = "datetime"
-        return energy_data
+        return energy_data.to_frame()
 
     def _get_market_location(self, market_location_number: str, start_date: dt.datetime):
         from optinode.webserver.configurator.models import MeteringOrMarketLocation
 
         locations = MeteringOrMarketLocation.objects.filter(
             number=market_location_number,
-            site__is_ppaaas=True
+            #site__is_ppaaas=True
         )
         if not locations.exists():
             raise NoMeteringOrMarketLocationFound(market_location_number)

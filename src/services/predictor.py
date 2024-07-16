@@ -133,6 +133,8 @@ class RandomForestRegressionPredictor(AbstractPredictor):
         if self.settings.input_period:
             pass
 
+        self.input_df.dropna(inplace=True)
+
         # Add X to input_df
         self.input_df = self._add_input_fields(self.input_df)
 

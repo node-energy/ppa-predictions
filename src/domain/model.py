@@ -60,6 +60,7 @@ class State(str, Enum):
 class Location(AggregateRoot):
     __hash__ = AggregateRoot.__hash__
     state: State
+    alias: Optional[str] = None
     producers: list[Producer] = field(default_factory=list)
     residual_long: Optional[Producer] = None
     residual_short: Consumer
@@ -134,6 +135,15 @@ class Location(AggregateRoot):
         if isinstance(component, Producer):
             if not self.producers:
                 self.producers.append(component)
+
+    def delete_oldest_predictions(self, keep: int = 3, type: PredictionType = None):
+        predictions = self.predictions
+
+        if type:
+            predictions = [p for p in self.predictions if p.type == type]
+
+        predictions_to_remove = sorted(predictions, reverse=True)[keep:]
+        self.predictions = [p for p in self.predictions if p not in predictions_to_remove]
 
 
 @dataclass(kw_only=True)
