@@ -31,7 +31,9 @@ class Location(UUIDBase):
         foreign_keys="Component.producer_location_id",
     )
     predictions: Mapped[list[Prediction]] = relationship(
-        back_populates="location", foreign_keys="Prediction.location_id"
+        back_populates="location",
+        foreign_keys="Prediction.location_id",
+        cascade="all, delete-orphan",
     )
 
 
