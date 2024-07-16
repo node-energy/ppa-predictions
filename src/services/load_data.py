@@ -12,7 +12,7 @@ from optinode.webserver.configurator.enums import Measurand
 
 
 class AbstractLoadDataRetriever(abc.ABC):
-    def get_data(self, market_location_number: str) -> pd.Series:
+    def get_data(self, market_location_number: str) -> pd.DataFrame:
         raise NotImplementedError()
 
 
