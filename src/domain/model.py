@@ -136,6 +136,15 @@ class Location(AggregateRoot):
             if not self.producers:
                 self.producers.append(component)
 
+    def delete_oldest_predictions(self, keep: int = 3, type: PredictionType = None):
+        predictions = self.predictions
+
+        if type:
+            predictions = [p for p in self.predictions if p.type == type]
+
+        predictions_to_remove = sorted(predictions, reverse=True)[keep:]
+        self.predictions = [p for p in self.predictions if p not in predictions_to_remove]
+
 
 @dataclass(kw_only=True)
 class Component(abc.ABC):
