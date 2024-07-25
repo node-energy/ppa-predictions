@@ -34,3 +34,8 @@ spec:
             limits:
               cpu: "1000m"
               memory: "600Mi"
+          envFrom:
+            - configMapRef:
+                name: ppa-predictions-config
+            - secretRef:
+                name: ppa-prediction-secrets
