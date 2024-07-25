@@ -29,6 +29,8 @@ RUN --mount=type=secret,id=PIP_EXTRA_INDEX_URL \
         && pip install --no-cache-dir -r /code/requirements.txt
 
 COPY ./src /code/src
+COPY alembic.ini /code/src
+RUN pip install psycopg2-binary
 
 #############
 # Testimage

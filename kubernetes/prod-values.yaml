@@ -1,7 +1,7 @@
 configuration:
   debug: "True"
   mail_recipient_cons: "test"
-  send_predictions_enabled: "test"
+  send_predictions_enabled: "False"
   smtp_host: "test"
   smtp_port: "587"
   smtp_email: "test"
