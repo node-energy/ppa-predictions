@@ -9,6 +9,7 @@ on:
       - main
 
 env:
+  HELM_VERSION: "v3.13.3"
   IMAGE_NAME: "nodeenergy.azurecr.io/ppa-predictions:${{ github.sha }}"
   RESOURCE_GROUP_NAME: "optinode-production"
   CLUSTER_NAME: "optinode"
@@ -75,13 +76,13 @@ jobs:
         run: docker run -v ./tests/:/code/tests --rm ${{ env.IMAGE_NAME }} pytest
 
   publish_image_and_deploy:
-    if: github.event_name == 'push'
+#    if: github.event_name == 'push' # ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
       id-token: write
-    needs: [ test ]
+    needs: [ build ]
     steps:
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v3
@@ -129,7 +130,8 @@ jobs:
       with:
         renderEngine: "helm"
         helmChart: kubernetes
-        helm-version: "v3.13.3"
+        helm-version: ${{ env.HELM_VERSION }}
+        overrideFiles: './kubernetes/prod-values.yaml'
       id: bake
 
     - name: Deploy application
@@ -139,6 +141,3 @@ jobs:
         manifests: ${{ steps.bake.outputs.manifestsBundle }}
         namespace: ${{ env.NAMESPACE }}
         images: ${{ env.IMAGE_NAME }}
-
-
-

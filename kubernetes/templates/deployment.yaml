@@ -34,14 +34,3 @@ spec:
             limits:
               cpu: "1000m"
               memory: "600Mi"
-      imagePullSecrets:
-        - name: az-registry-credentials
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              app: ppa-predictions
-          matchLabelKeys:
-            - pod-template-hash

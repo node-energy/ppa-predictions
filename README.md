@@ -67,4 +67,4 @@ ppa-predictions uses alembic for Database Migrations
 =======
 ## Access service on staging
 
-```kubectl port-forward svc/ppa-predictions-service 8001:8001 -n ppa (--context optinode-staging)```
+```kubectl port-forward svc/ppa-predictions-service 8001:8001 -n ppa (--context optinode-production)```
