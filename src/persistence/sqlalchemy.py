@@ -2,7 +2,7 @@ from __future__ import annotations
 from uuid import UUID
 from datetime import datetime, timezone
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
-from sqlalchemy import Column, DateTime, String, ForeignKey, PickleType
+from sqlalchemy import DateTime, ForeignKey, PickleType, UniqueConstraint
 from typing import Optional
 
 
@@ -19,6 +19,10 @@ class UUIDMixin:
 class Location(Base, UUIDMixin):
     __tablename__ = "locations"
 
+    settings: Mapped[LocationSettings] = relationship(
+        back_populates="location",
+        cascade="all, delete-orphan",
+    )
     state: Mapped[str]
     alias: Mapped[Optional[str]]
     residual_long: Mapped[Optional[Component]] = relationship(
@@ -89,3 +93,17 @@ class HistoricLoadData(Base, UUIDMixin):
     component: Mapped[Component] = relationship(
         back_populates="historic_load_data", foreign_keys=[component_id]
     )
+
+
+class LocationSettings(Base):
+    __tablename__ = "locationsettings"
+    __table_args__ = (UniqueConstraint("location_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    location_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("locations.id"))
+    location: Mapped[Optional[Location]] = relationship(
+        back_populates="settings", foreign_keys=[location_id],
+    )
+    active_from: Mapped[datetime] = mapped_column(DateTime)
+    active_until: Mapped[Optional[datetime]] = mapped_column(DateTime)
+

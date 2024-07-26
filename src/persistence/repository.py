@@ -10,6 +10,7 @@ from src.persistence.sqlalchemy import (
     Component as DBComponent,
     HistoricLoadData as DBHistoricLoadData,
     Prediction as DBPrediction,
+    LocationSettings as DBLocationSettings,
 )
 
 
@@ -145,6 +146,14 @@ class LocationRepository(
     AbstractRepository[model.Location],  # LocationRepositoryBase
 ):
     def db_to_domain(self, db_obj: DBLocation) -> model.Location:
+        def settings_to_domain(db_setting: DBLocationSettings) -> model.LocationSettings:
+            if db_setting is None:
+                return None
+            return model.LocationSettings(
+                active_from=db_setting.active_from,
+                active_until=db_setting.active_until,
+            )
+
         def historic_load_data_to_domain(
             db_hld: DBHistoricLoadData,
         ) -> model.HistoricLoadData:
@@ -184,6 +193,7 @@ class LocationRepository(
         state = model.State(db_obj.state)
         return model.Location(
             id=db_obj.id,
+            settings=settings_to_domain(db_obj.settings),
             state=state,
             alias=db_obj.alias,
             residual_short=component_to_domain(db_obj.residual_short),
@@ -193,6 +203,14 @@ class LocationRepository(
         )
 
     def domain_to_db(self, domain_obj: model.Location) -> DBLocation:
+        def settings_to_db(settings: model.LocationSettings) -> DBLocationSettings:
+            if settings is None:
+                return None
+            return DBLocationSettings(
+                active_from=settings.active_from,
+                active_until=settings.active_until,
+            )
+
         def historic_load_data_to_db(hld: model.HistoricLoadData) -> DBHistoricLoadData:
             if hld is None:
                 return None
@@ -228,6 +246,7 @@ class LocationRepository(
         residual_short_db.residual_short_location_id = domain_obj.id
         return DBLocation(
             id=domain_obj.id,
+            settings=settings_to_db(domain_obj.settings),
             state=domain_obj.state.value,
             alias=domain_obj.alias,
             residual_short=component_to_db(domain_obj.residual_short),

@@ -23,6 +23,11 @@ class Entity:
         cls.__hash__ = Entity.__hash__
 
 
+@dataclass(frozen=True)
+class ValueObject:
+    pass
+
+
 @dataclass(kw_only=True)
 class AggregateRoot(Entity):
     events: list = field(default_factory=list)
@@ -59,6 +64,7 @@ class State(str, Enum):
 @dataclass(kw_only=True)
 class Location(AggregateRoot):
     __hash__ = AggregateRoot.__hash__
+    settings: LocationSettings
     state: State
     alias: Optional[str] = None
     producers: list[Producer] = field(default_factory=list)
@@ -203,3 +209,9 @@ class Prediction(Entity):
 @dataclass
 class PredictionSettings:
     location: Location
+
+
+@dataclass(kw_only=True, frozen=True)
+class LocationSettings(ValueObject):
+    active_from: datetime
+    active_until: Optional[datetime]

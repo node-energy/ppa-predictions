@@ -3,13 +3,11 @@ import datetime as dt
 import pandas as pd
 from pandas.testing import assert_frame_equal
 from src.domain.model import (
-    Consumer,
     HistoricLoadData,
     Location,
     Prediction,
     PredictionType,
     Producer,
-    State,
 )
 
 
