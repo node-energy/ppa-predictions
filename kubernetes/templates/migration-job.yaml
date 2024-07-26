@@ -21,7 +21,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: django
-          image: nodeenergy.azurecr.io/{{ .Values.image.repository }}:{{ .Values.image.tag }}
+          image: "nodeenergy.azurecr.io/ppa-predictions:latest"
           command: ['/bin/sh', '/code/run_migrations.sh']
           envFrom:
             - configMapRef:
