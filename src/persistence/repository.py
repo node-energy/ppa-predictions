@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Type, TypeVar, Generic
 from src.domain import model
 from sqlalchemy.orm import Session
-from src.persistence.sqlalchemy import UUIDBase as DBBase
+from src.persistence.sqlalchemy import Base as DBBase
 from src.persistence.sqlalchemy import (
     Location as DBLocation,
     Component as DBComponent,

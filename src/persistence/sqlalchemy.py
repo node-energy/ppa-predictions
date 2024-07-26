@@ -6,14 +6,17 @@ from sqlalchemy import Column, DateTime, String, ForeignKey, PickleType
 from typing import Optional
 
 
-class UUIDBase(DeclarativeBase):
-    id: Mapped[UUID] = mapped_column(primary_key=True)
+class Base(DeclarativeBase):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
     )
 
 
-class Location(UUIDBase):
+class UUIDMixin:
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+
+
+class Location(Base, UUIDMixin):
     __tablename__ = "locations"
 
     state: Mapped[str]
@@ -37,7 +40,7 @@ class Location(UUIDBase):
     )
 
 
-class Component(UUIDBase):
+class Component(Base, UUIDMixin):
     __tablename__ = "components"
 
     type: Mapped[str]
@@ -67,7 +70,7 @@ class Component(UUIDBase):
     )
 
 
-class Prediction(UUIDBase):
+class Prediction(Base, UUIDMixin):
     __tablename__ = "predictions"
 
     type: Mapped[str]
@@ -78,7 +81,7 @@ class Prediction(UUIDBase):
     )
 
 
-class HistoricLoadData(UUIDBase):
+class HistoricLoadData(Base, UUIDMixin):
     __tablename__ = "historicloaddata"
 
     dataframe: Mapped[bytes] = mapped_column(PickleType())
