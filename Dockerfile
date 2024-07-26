@@ -28,9 +28,10 @@ RUN --mount=type=secret,id=PIP_EXTRA_INDEX_URL \
         export PIP_EXTRA_INDEX_URL=$(cat /run/secrets/PIP_EXTRA_INDEX_URL) \
         && pip install --no-cache-dir -r /code/requirements.txt
 
-COPY ./src /code/src
-COPY alembic.ini /code/src
 RUN pip install psycopg2-binary
+
+COPY ./src /code/src
+COPY alembic.ini ./kubernetes/scripts/run_migrations.sh /code
 
 #############
 # Testimage
