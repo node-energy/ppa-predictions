@@ -149,6 +149,9 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
             state=cmd.state,
             alias=cmd.alias,
             residual_short=model.Consumer(malo=cmd.residual_short_malo),
+            settings=model.LocationSettings(
+                active_from=cmd.settings_active_from, active_until=cmd.settings_active_until
+            ),
         )
         uow.locations.add(location)
         uow.commit()
