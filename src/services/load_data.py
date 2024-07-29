@@ -21,6 +21,22 @@ class APILoadDataRetriever(AbstractLoadDataRetriever):
         pass
 
 
+class EnercastApiDataRetriever(AbstractLoadDataRetriever):
+    def __init__(self):
+        self.api_base_url: str = ""
+
+    def get_data(self, market_location_number: str) -> pd.DataFrame:
+        pass
+
+
+class EnercastFtpDataRetriever(AbstractLoadDataRetriever):
+    def __init__(self):
+        self.host: str = ""
+
+    def get_data(self, market_location_number: str) -> pd.DataFrame:
+        pass
+
+
 class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
     def __init__(self):
         os.environ["SECRET_KEY"] = "topsecret"
