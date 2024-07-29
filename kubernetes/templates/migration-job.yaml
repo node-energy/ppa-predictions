@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: database-migrations
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-weight": "1"
+spec:
+  template:
+    metadata:
+      annotations:
+          seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'docker/default'
+          apparmor.security.beta.kubernetes.io/allowedProfileNames: 'runtime/default'
+          seccomp.security.alpha.kubernetes.io/defaultProfileName:  'docker/default'
+          apparmor.security.beta.kubernetes.io/defaultProfileName:  'runtime/default'
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: django
+          image: "nodeenergy.azurecr.io/ppa-predictions:latest"
+          command: ['/bin/sh', '/code/run_migrations.sh']
+          envFrom:
+            - configMapRef:
+                name: ppa-predictions-config
+            - secretRef:
+                name: ppa-prediction-secrets
+      restartPolicy: Never
+  backoffLimit: 5

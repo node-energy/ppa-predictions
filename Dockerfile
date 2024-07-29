@@ -1,6 +1,6 @@
-FROM python:3.12.1-bookworm as requirements-stage
+FROM python:3.11.9-bookworm AS base
 
-RUN pip install poetry==1.6.1
+RUN pip install poetry==1.7.1
 
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
@@ -13,14 +13,33 @@ COPY pyproject.toml poetry.lock /tmp/
 
 RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
 
-FROM python:3.12.1-bookworm
+RUN poetry export -f requirements.txt --only dev --output requirements-dev.txt --without-hashes
+
+#############
+# Production Image
+#############
+FROM base AS production-stage
 
 WORKDIR /code
 
-COPY --from=requirements-stage /tmp/requirements.txt /code/requirements.txt
+COPY --from=base /tmp/requirements.txt /code/requirements.txt
 
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+RUN --mount=type=secret,id=PIP_EXTRA_INDEX_URL \
+        export PIP_EXTRA_INDEX_URL=$(cat /run/secrets/PIP_EXTRA_INDEX_URL) \
+        && pip install --no-cache-dir -r /code/requirements.txt
+
+RUN pip install psycopg2-binary
 
 COPY ./src /code/src
+COPY alembic.ini ./kubernetes/scripts/run_migrations.sh /code
 
-CMD ["uvicorn", "src.main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "8001"]
+#############
+# Testimage
+#############
+FROM production-stage AS test-stage
+
+WORKDIR /code
+
+COPY --from=base /tmp/requirements-dev.txt /code/requirements-dev.txt
+
+RUN pip install --no-cache-dir -r /code/requirements-dev.txt
