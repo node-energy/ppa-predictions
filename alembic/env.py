@@ -6,6 +6,8 @@ from sqlalchemy import pool
 from alembic import context
 
 from src.persistence.sqlalchemy import DeclarativeBase, UUIDBase, Location, Component, Prediction, HistoricLoadData
+from src.config import settings
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -26,6 +28,7 @@ target_metadata = UUIDBase.metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+config.set_main_option("sqlalchemy.url", settings.db_connection_string)
 
 
 def run_migrations_offline() -> None:
@@ -33,7 +36,7 @@ def run_migrations_offline() -> None:
 
     This configures the context with just a URL
     and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
+    here as well.  By skipping the Engine creationß
     we don't even need a DBAPI to be available.
 
     Calls to context.execute() here emit the given string to the
