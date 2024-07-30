@@ -31,7 +31,9 @@ RUN --mount=type=secret,id=PIP_EXTRA_INDEX_URL \
 RUN pip install psycopg2-binary
 
 COPY ./src /code/src
-COPY alembic.ini ./kubernetes/scripts/run_migrations.sh /code
+COPY ./alembic /code/alembic
+
+COPY alembic.ini ./kubernetes/scripts/run_migrations.sh  /code
 
 #############
 # Testimage
