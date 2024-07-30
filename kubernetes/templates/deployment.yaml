@@ -33,7 +33,7 @@ spec:
               memory: "100Mi"
             limits:
               cpu: "1000m"
-              memory: "600Mi"
+              memory: "1000Mi"
           envFrom:
             - configMapRef:
                 name: ppa-predictions-config
