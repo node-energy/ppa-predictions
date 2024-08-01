@@ -51,6 +51,22 @@ class TestLocation:
         assert response.status_code == 200
         assert json.items() <= response.json().items()
 
+    def test_update_location_settings(self, bus, setup_database):
+        json = {
+            "state": State.berlin.value,
+            "alias": "New Location",
+            "residual_short": {"malo": "malo-1"},
+            "settings": {"active_from": "2024-01-01T00:00:00", "active_until": None},
+        }
+
+        post_response = client.post("/locations/", json=json)
+
+        location_id = post_response.json()["id"]
+        json = {"active_from": "2024-01-01T00:00:00", "active_until": "2024-01-10T00:00:00"}
+        response = client.put(f"/locations/{location_id}/update_settings", json=json)
+        assert response.status_code == 200
+        assert response.json()["settings"]["active_until"] == "2024-01-10T00:00:00"
+
     def test_get_locations(self, bus, setup_database):
         client.post("/locations/", json={"state": State.berlin, "alias": "Location-1", "residual_short": {"malo": "malo-1"}, "settings": {"active_from": "2024-01-01 00:00"}})
         client.post("/locations/", json={"state": State.berlin, "alias": "Location-2", "residual_short": {"malo": "malo-2"}, "settings": {"active_from": "2024-01-01 00:00"}})

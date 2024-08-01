@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Type, TypeVar, Generic
 from src.domain import model
 from sqlalchemy.orm import Session
-from src.persistence.sqlalchemy import Base as DBBase
+from src.persistence.sqlalchemy import Base as DBBase, LocationSettings
 from src.persistence.sqlalchemy import (
     Location as DBLocation,
     Component as DBComponent,
@@ -203,9 +203,11 @@ class LocationRepository(
         )
 
     def domain_to_db(self, domain_obj: model.Location) -> DBLocation:
-        def settings_to_db(settings: model.LocationSettings) -> DBLocationSettings:
+        def settings_to_db(domain_id: str, settings: model.LocationSettings) -> DBLocationSettings:
             if settings is None:
                 return None
+            # recreate value object
+            self._session.query(LocationSettings).filter_by(location_id=domain_id).delete()  # todo too dirty?
             return DBLocationSettings(
                 active_from=settings.active_from,
                 active_until=settings.active_until,
@@ -246,7 +248,7 @@ class LocationRepository(
         residual_short_db.residual_short_location_id = domain_obj.id
         return DBLocation(
             id=domain_obj.id,
-            settings=settings_to_db(domain_obj.settings),
+            settings=settings_to_db(domain_obj.id, domain_obj.settings),
             state=domain_obj.state.value,
             alias=domain_obj.alias,
             residual_short=component_to_db(domain_obj.residual_short),

@@ -38,6 +38,13 @@ class CreateLocation(Command):
 
 
 @dataclass
+class UpdateLocationSettings(Command):
+    location_id: str
+    settings_active_from: datetime
+    settings_active_until: Optional[datetime]
+
+
+@dataclass
 class GetComponents(Command):
     pass
 

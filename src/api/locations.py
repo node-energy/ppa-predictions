@@ -103,6 +103,34 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
     )
 
 
+@router.put("/{location_id}/update_settings")
+def update_location_settings(
+    bus: Annotated[MessageBus, Depends(get_bus)], location_id: str, fa_location_settings: LocationSettings
+):
+    with bus.uow as uow:
+        if not uow.locations.get(uuid.UUID(location_id)):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        new_location: DLocation = bus.handle(
+            commands.UpdateLocationSettings(
+                location_id=location_id,
+                settings_active_from=fa_location_settings.active_from,
+                settings_active_until=fa_location_settings.active_until,
+            )
+        )
+        return Location.model_validate(
+            Location(
+                id=str(new_location.id),
+                state=new_location.state,
+                alias=new_location.alias,
+                residual_short=ResidualShort(malo=new_location.residual_short.malo),
+                settings=LocationSettings(
+                    active_from=new_location.settings.active_from,
+                    active_until=new_location.settings.active_until,
+                )
+            )
+        )
+
+
 @router.post("/{location_id}/update_location_data")
 def update_location_historic_data(
     bus: Annotated[MessageBus, Depends(get_bus)], location_id: str

@@ -158,6 +158,19 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
         return location
 
 
+def update_location_settings(cmd: commands.UpdateLocationSettings, uow: unit_of_work.AbstractUnitOfWork):
+    with uow:
+        location: model.Location = uow.locations.get(UUID(cmd.location_id))
+
+        location.settings = model.LocationSettings(
+            active_from=cmd.settings_active_from,
+            active_until=cmd.settings_active_until
+        )
+        uow.locations.update(location)
+        uow.commit()
+        return location
+
+
 EVENT_HANDLERS = {
     # events.CustomerCreated: [test_handler],
     # events.HistoricLoadProfileReceived: [create_prediction],
@@ -171,6 +184,7 @@ EVENT_HANDLERS = {
 
 COMMAND_HANDLERS = {
     commands.CreateLocation: add_location,
+    commands.UpdateLocationSettings: update_location_settings,
     commands.UpdateHistoricData: update_historic_data,
     commands.CalculatePredictions: calculate_predictions,
     commands.SendPredictions: send_predictions,
