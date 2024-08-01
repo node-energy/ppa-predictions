@@ -9,4 +9,4 @@ configuration:
   update_cron: "45 10 * * * "
 
 network:
-  hostName: "ppapredictions-staging.testsystem.node.energy"
+  hostName: "ppapredictions.testsystem.node.energy"
