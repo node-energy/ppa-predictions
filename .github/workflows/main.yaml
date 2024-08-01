@@ -34,7 +34,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          tags: ${{ env.IMAGE_NAME }}
+          tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_HASH }}
           target: "production-stage"
           outputs: type=docker,dest=/tmp/prodimage.tar
           secrets: |
@@ -46,7 +46,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          tags: ${{ env.IMAGE_NAME }}
+          tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_HASH }}
           target: "test-stage"
           outputs: type=docker,dest=/tmp/testimage.tar
           secrets: |
@@ -81,7 +81,7 @@ jobs:
 #        run: docker load --input /tmp/testimage.tar
 #
 #      - name: Run pytest in Docker container
-#        run: docker run -v ./tests/:/code/tests --rm ${{ env.IMAGE_NAME }} pytest
+#        run: docker run -v ./tests/:/code/tests --rm ${{ env.IMAGE_NAME }}:${{ env.IMAGE_HASH }} pytest
 
   publish_image:
 #    if: github.event_name == 'push' # ${{ github.ref == 'refs/heads/main' }}
@@ -111,7 +111,7 @@ jobs:
         login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
         username: ${{ secrets.AZURE_CLIENT_ID }}
         password: ${{ secrets.AZURE_CLIENT_PASSWORD }}
-    - run: docker push ${{ env.IMAGE_NAME }}
+    - run: docker push ${{ env.IMAGE_NAME }}:${{ env.IMAGE_HASH }}
 
 
   deploy_helm_chart:
@@ -135,6 +135,7 @@ jobs:
       run: |
         echo ${{env.RESOURCE_GROUP_NAME}}
         echo ${{env.TARGET_CONTEXT}}
+        echo $GITHUB_REF_NAME
 
 #    - name: Checkout repository
 #      uses: actions/checkout@v4
@@ -178,4 +179,4 @@ jobs:
 #        action: deploy
 #        manifests: ${{ steps.bake.outputs.manifestsBundle }}
 #        namespace: ${{ env.NAMESPACE }}
-#        images: ${{ env.IMAGE_NAME }}
+#        images: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_HASH }}
