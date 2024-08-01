@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ppapredictions-test-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  namespace: ppa
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - {{ .Values.network.hostName }}
+      secretName: ppapredictions-test-certificate
+  rules:
+    - host: {{ .Values.network.hostName }}
+      http:
+        paths:
+          - pathType: Prefix
+            path: /
+            backend:
+              service:
+                name: ppa-predictions-service
+                port:
+                  number: 8001

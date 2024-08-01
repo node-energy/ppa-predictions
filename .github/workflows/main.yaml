@@ -7,13 +7,12 @@ on:
   pull_request:
     branches:
       - main
+      - develop
 
 env:
   HELM_VERSION: "v3.14.4"
   IMAGE_NAME: "nodeenergy.azurecr.io/ppa-predictions"
   IMAGE_HASH: "${{ github.sha }}"
-  RESOURCE_GROUP_NAME: "optinode"
-  CLUSTER_NAME: "optinode-production"
   NAMESPACE: "ppa"
   PIP_EXTRA_INDEX_URL: ${{ secrets.PIP_EXTRA_INDEX_URL }}
 
@@ -84,14 +83,10 @@ jobs:
 #      - name: Run pytest in Docker container
 #        run: docker run -v ./tests/:/code/tests --rm ${{ env.IMAGE_NAME }} pytest
 
-  publish_image_and_deploy:
-    if: github.event_name == 'push' # ${{ github.ref == 'refs/heads/main' }}
+  publish_image:
+#    if: github.event_name == 'push' # ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     needs: [ build ]
-    permissions:
-      actions: read
-      contents: read
-      id-token: write
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -118,43 +113,69 @@ jobs:
         password: ${{ secrets.AZURE_CLIENT_PASSWORD }}
     - run: docker push ${{ env.IMAGE_NAME }}
 
-    - name: Log in with Azure
-      uses: azure/login@v1
-      with:
-        creds: '${{ secrets.AZURE_CREDENTIALS }}'
 
-    - name: Set up kubelogin for non-interactive login
-      uses: azure/use-kubelogin@v1
-      with:
-        kubelogin-version: 'v0.0.25'
+  deploy_helm_chart:
+    runs-on: ubuntu-latest
+    needs: [ "publish_image" ]
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    steps:
+    - name: Set target environment
+      run: |
+          if [[ $GITHUB_REF_NAME == 'main' ]]; then
+              echo "RESOURCE_GROUP_NAME=optinode-staging" >> "$GITHUB_ENV"
+              echo "TARGET_CONTEXT=optinode-staging" >> "$GITHUB_ENV"
+          else
+              echo "RESOURCE_GROUP_NAME=optinode" >> "$GITHUB_ENV"
+              echo "TARGET_CONTEXT=optinode-production" >> "$GITHUB_ENV"
+          fi
+    - name: echo target environment
+      run: |
+        echo ${{env.RESOURCE_GROUP_NAME}}
+        echo ${{env.TARGET_CONTEXT}}
 
-    - name: Get K8s context
-      uses: azure/aks-set-context@v3
-      with:
-        resource-group: ${{ env.RESOURCE_GROUP_NAME }}
-        cluster-name: ${{ env.CLUSTER_NAME }}
-        admin: 'false'
-        use-kubelogin: 'true'
-
-    - name: List current directory
-      run: ls -al
-
-    - name: List Helm chart directory
-      run: ls -al './kubernetes'
-
-    - name: Bake deployment
-      uses: azure/k8s-bake@v2.4
-      with:
-        renderEngine: 'helm'
-        helmChart: './kubernetes'
-        helm-version: ${{ env.HELM_VERSION }}
-        overrideFiles: './kubernetes/prod-values.yaml'
-      id: bake
-
-    - name: Deploy application
-      uses: Azure/k8s-deploy@v4
-      with:
-        action: deploy
-        manifests: ${{ steps.bake.outputs.manifestsBundle }}
-        namespace: ${{ env.NAMESPACE }}
-        images: ${{ env.IMAGE_NAME }}
+#    - name: Checkout repository
+#      uses: actions/checkout@v4
+#    - name: Login to GitHub Container Registry
+#      uses: docker/login-action@v3
+#      with:
+#        registry: ${{ secrets.REGISTRY_LOGIN_SERVER }}
+#        username: ${{ secrets.AZURE_CLIENT_ID }}
+#        password: ${{ secrets.AZURE_CLIENT_PASSWORD }}
+#
+#    - name: Log in with Azure
+#      uses: azure/login@v1
+#      with:
+#        creds: '${{ secrets.AZURE_CREDENTIALS }}'
+#
+#    - name: Set up kubelogin for non-interactive login
+#      uses: azure/use-kubelogin@v1
+#      with:
+#        kubelogin-version: 'v0.0.25'
+#
+#    - name: Get K8s context
+#      uses: azure/aks-set-context@v3
+#      with:
+#        resource-group: ${{ env.RESOURCE_GROUP_NAME }}
+#        cluster-name: ${{ env.CLUSTER_NAME }}
+#        admin: 'false'
+#        use-kubelogin: 'true'
+#
+#    - name: Bake deployment
+#      uses: azure/k8s-bake@v2.4
+#      with:
+#        renderEngine: 'helm'
+#        helmChart: './kubernetes'
+#        helm-version: ${{ env.HELM_VERSION }}
+#        overrideFiles: './kubernetes/prod-values.yaml'
+#      id: bake
+#
+#    - name: Deploy application
+#      uses: Azure/k8s-deploy@v4
+#      with:
+#        action: deploy
+#        manifests: ${{ steps.bake.outputs.manifestsBundle }}
+#        namespace: ${{ env.NAMESPACE }}
+#        images: ${{ env.IMAGE_NAME }}
