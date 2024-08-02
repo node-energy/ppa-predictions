@@ -10,3 +10,6 @@ configuration:
 
 network:
   hostName: "ppapredictions.testsystem.node.energy"
+
+onepassword:
+  vault: ppa-production
