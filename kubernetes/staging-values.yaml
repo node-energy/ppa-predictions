@@ -10,3 +10,6 @@ configuration:
 
 network:
   hostName: "ppapredictions-staging.testsystem.node.energy"
+
+onepassword:
+  vault: optinode-staging
