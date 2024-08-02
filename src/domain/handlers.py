@@ -87,6 +87,28 @@ def calculate_predictions(
             datetime.datetime.min.time(),
         )
         end_date = start_date + datetime.timedelta(days=7)
+
+        if (
+            location.settings.active_until is not None
+            and start_date > location.settings.active_until
+        ):
+            logger.info(
+                msg="Won't calculate predictions for location as <active_until> is in the past",
+                location=location.alias,
+                active_until=location.settings.active_until,
+            )
+            return
+        if end_date < location.settings.active_from:
+            logger.info(
+                msg="Won't calculate predictions for location as <active_from> is beyond the prediction horizon",
+                location=location.alias,
+                active_from=location.settings.active_from,
+            )
+            return
+        start_date = max(start_date, location.settings.active_from)
+        if location.settings.active_until is not None:
+            end_date = min(end_date, location.settings.active_until)
+
         predictor_setting = predictor.PredictorSettings(
             state=location.state,
             output_period=predictor.Period(start=start_date, end=end_date),

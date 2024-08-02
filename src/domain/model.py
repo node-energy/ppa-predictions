@@ -109,12 +109,19 @@ class Location(AggregateRoot):
             None,
         )
 
+        def clip_to_time_range(df: pd.DataFrame) -> pd.DataFrame:
+            return df[
+                (df.index >= self.settings.active_from) & (
+                    df.index < self.settings.active_until if self.settings.active_until else True)
+                ]
+
         short_prediction_df = (
             total_consumption_df - total_production_df
             if self.has_production
             else total_consumption_df
         )
         short_prediction_df[short_prediction_df < 0] = 0
+        short_prediction_df = clip_to_time_range(short_prediction_df)
         self.predictions.append(
             Prediction(df=short_prediction_df, type=PredictionType.RESIDUAL_SHORT)
         )
@@ -122,6 +129,7 @@ class Location(AggregateRoot):
         if self.has_production:
             long_prediction_df = total_production_df - total_consumption_df
             long_prediction_df[long_prediction_df < 0] = 0
+            long_prediction_df = clip_to_time_range(long_prediction_df)
             self.predictions.append(
                 Prediction(df=long_prediction_df, type=PredictionType.RESIDUAL_LONG)
             )
