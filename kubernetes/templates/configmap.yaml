@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ppa-predictions-config
+  namespace: ppa
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-weight": "0"
+data:
+  DEBUG: "{{.Values.configuration.debug}}"
+  MAIL_RECIPIENT_CONS: "{{.Values.configuration.mail_recipient_cons}}"
+  SEND_PREDICTIONS_ENABLED: "{{.Values.configuration.send_predictions_enabled}}"
+  SMTP_HOST: "{{.Values.configuration.smtp_host}}"
+  SMTP_PORT: "{{.Values.configuration.smtp_port}}"
+  SMTP_EMAIL: "{{.Values.configuration.smtp_email}}"
+  UPDATE_CRON: "{{.Values.configuration.update_cron}}"

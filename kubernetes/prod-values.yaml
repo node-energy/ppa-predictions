@@ -1,0 +1,8 @@
+configuration:
+  debug: "True"
+  mail_recipient_cons: "test"
+  send_predictions_enabled: "False"
+  smtp_host: "test"
+  smtp_port: "587"
+  smtp_email: "test"
+  update_cron: "45 10 * 12 * "
