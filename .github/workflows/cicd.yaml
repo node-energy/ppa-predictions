@@ -129,16 +129,11 @@ jobs:
         run: |
           if [[ $GITHUB_REF_NAME == 'main' ]]; then
               echo "RESOURCE_GROUP_NAME=optinode" >> "$GITHUB_ENV"
-              echo "TARGET_CONTEXT=optinode-production" >> "$GITHUB_ENV"
+              echo "CLUSTER_NAME=optinode-production" >> "$GITHUB_ENV"
           elif [[ $GITHUB_REF_NAME == 'develop' ]]; then
               echo "RESOURCE_GROUP_NAME=optinode-staging" >> "$GITHUB_ENV"
-              echo "TARGET_CONTEXT=optinode-staging" >> "$GITHUB_ENV"
+              echo "CLUSTER_NAME=optinode-staging" >> "$GITHUB_ENV"
           fi
-      - name: echo target environment
-        run: |
-          echo ${{env.RESOURCE_GROUP_NAME}}
-          echo ${{env.TARGET_CONTEXT}}
-          echo $GITHUB_REF_NAME
 
       - name: Checkout repository
         uses: actions/checkout@v4
