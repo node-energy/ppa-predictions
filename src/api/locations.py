@@ -17,11 +17,21 @@ class ResidualShort(BaseModel):
     malo: str
 
 
+class ResidualLong(BaseModel):
+    malo: str
+
+
+class Producer(BaseModel):
+    malo: str
+
+
 class Location(BaseModel):
     state: str
     alias: Optional[str] = None
     id: Optional[str] = None
     residual_short: ResidualShort
+    residual_long: Optional[ResidualLong] = None
+    producers: Optional[list[Producer]] = []
 
 
 @router.get("/")
@@ -65,11 +75,14 @@ def get_location(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str)
 def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Location):
     state = State(fa_location.state)  # TODO primitives?
     residual_short = ResidualShort(malo=fa_location.residual_short.malo)
+    residual_long = ResidualLong(malo=fa_location.residual_long.malo) if fa_location.residual_long else None
     location: DLocation = bus.handle(
         commands.CreateLocation(
             state=state,
             alias=fa_location.alias,
             residual_short_malo=residual_short.malo,
+            residual_long_malo=residual_long.malo,
+            producer_malos=[producer.malo for producer in fa_location.producers]
         )
     )
     return Location.model_validate(
@@ -78,6 +91,8 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
             state=location.state,
             alias=location.alias,
             residual_short=ResidualShort(malo=location.residual_short.malo),
+            residual_long=ResidualLong(malo=location.residual_long.malo) if location.residual_long else None,
+            producers=[Producer(malo=p.malo) for p in location.producers]
         )
     )
 

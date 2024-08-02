@@ -33,6 +33,8 @@ class CreateLocation(Command):
     state: State
     alias: Optional[str]
     residual_short_malo: str
+    residual_long_malo: Optional[str]
+    producer_malos: Optional[list[str]]
 
 
 @dataclass

@@ -57,6 +57,11 @@ class State(str, Enum):
 
 
 @dataclass(kw_only=True)
+class LocationSetting():
+    pass
+
+
+@dataclass(kw_only=True)
 class Location(AggregateRoot):
     __hash__ = AggregateRoot.__hash__
     state: State
@@ -65,6 +70,8 @@ class Location(AggregateRoot):
     residual_long: Optional[Producer] = None
     residual_short: Consumer
     predictions: list[Prediction] = field(default_factory=list)
+
+    #settings: LocationSetting
 
     @property
     def has_production(self):
@@ -146,11 +153,16 @@ class Location(AggregateRoot):
         self.predictions = [p for p in self.predictions if p not in predictions_to_remove]
 
 
+class Source(str, Enum):
+    OPTINODE = "OPTINODE"
+
+
 @dataclass(kw_only=True)
 class Component(abc.ABC):
     malo: str
     name: Optional[str] = None
     historic_load_data: Optional[HistoricLoadData] = None
+    source: Optional[Source] = Source.OPTINODE
 
 
 @dataclass(kw_only=True)
