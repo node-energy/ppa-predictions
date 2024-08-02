@@ -1,3 +1,4 @@
+import datetime as dt
 import string
 
 import pytest
@@ -5,7 +6,7 @@ import uuid
 import pandas as pd
 import random
 from sqlalchemy import create_engine, MetaData
-from sqlalchemy.orm import sessionmaker, clear_mappers
+from sqlalchemy.orm import sessionmaker
 from src.domain import model
 
 
@@ -40,7 +41,14 @@ def historic_load_profile(component):
 
 @pytest.fixture
 def location():
-    return model.Location(state=model.State.berlin, residual_short=model.Consumer(malo=random_malo()))
+    return model.Location(
+        settings=model.LocationSettings(
+            active_from=dt.datetime(2024, 1, 1, 0, 0),
+            active_until=None,
+        ),
+        state=model.State.berlin,
+        residual_short=model.Consumer(malo=random_malo())
+    )
 
 
 @pytest.fixture

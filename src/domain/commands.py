@@ -1,6 +1,6 @@
 from datetime import datetime
 from dataclasses import dataclass
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 from src.domain.model import State
 
 
@@ -33,6 +33,15 @@ class CreateLocation(Command):
     state: State
     alias: Optional[str]
     residual_short_malo: str
+    settings_active_from: datetime
+    settings_active_until: Optional[datetime]
+
+
+@dataclass
+class UpdateLocationSettings(Command):
+    location_id: str
+    settings_active_from: datetime
+    settings_active_until: Optional[datetime]
 
 
 @dataclass
