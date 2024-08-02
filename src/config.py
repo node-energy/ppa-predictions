@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     update_cron: str = "45 10 * * *"
     send_predictions_enabled: bool = False
     api_key: str = "node"
+    enercast_ftp_username: str
+    enercast_ftp_pass: str
+    enercast_ftp_host: str = "transfer.enercast.de"
 
     optinode_db_connection_string: str
 

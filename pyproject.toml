@@ -26,6 +26,7 @@ django-pandas-timeseries = {version = "*", source = "node-energy"}
 energy-data-converter = {version = "*", source = "node-energy"}
 mako-utils = {version = "*", source = "node-energy"}
 factory-boy = "^3.3.0"
+paramiko = "^2.12.0"    # version constraint from optinode dependency
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
