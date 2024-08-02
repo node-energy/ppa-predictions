@@ -1,5 +1,3 @@
-import random
-import uuid
 import datetime as dt
 import pandas as pd
 from src.infrastructure.message_bus import MessageBus
@@ -14,9 +12,8 @@ def create_df_with_constant_values(value=42):
     start = dt.datetime.now().replace(microsecond=0, second=0, minute=0)
     end = start + dt.timedelta(days=30)
     df = pd.DataFrame(
-        {"datetime": pd.date_range(start=start, end=end, freq="15min"), "value": value}
+        index=pd.date_range(start=start, end=end, freq="15min"), data={"value": value}
     )
-    df.set_index("datetime", inplace=True)
     return df
 
 

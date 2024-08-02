@@ -82,7 +82,6 @@ class Location(AggregateRoot):
         )
 
     def calculate_local_consumption(self):
-        result = None
         if not self.has_production:
             if not self.residual_short.historic_load_data:
                 return None
