@@ -9,7 +9,7 @@ configuration:
   update_cron: "45 10 * * * "
 
 network:
-  hostName: "ppapredictions.testsystem.node.energy"
+  hostName: "ppapredictions-staging.testsystem.node.energy"
 
 onepassword:
-  vault: ppa-production
+  vault: optinode-staging
