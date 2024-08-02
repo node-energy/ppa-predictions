@@ -45,8 +45,10 @@ def get_locations(bus: Annotated[MessageBus, Depends(get_bus)]):
                 residual_short=ResidualShort(malo=loc.residual_short.malo),
                 settings=LocationSettings(
                     active_from=loc.settings.active_from,
-                    active_until=loc.settings.active_until if loc.settings.active_until else None,
-                )
+                    active_until=loc.settings.active_until
+                    if loc.settings.active_until
+                    else None,
+                ),
             )
             for loc in locations
         ]
@@ -70,8 +72,10 @@ def get_location(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str)
                 residual_short=ResidualShort(malo=location.residual_short.malo),
                 settings=LocationSettings(
                     active_from=location.settings.active_from,
-                    active_until=location.settings.active_until if location.settings.active_until else None,
-                )
+                    active_until=location.settings.active_until
+                    if location.settings.active_until
+                    else None,
+                ),
             )
         )
 
@@ -86,7 +90,9 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
             alias=fa_location.alias,
             residual_short_malo=residual_short.malo,
             settings_active_from=fa_location.settings.active_from,
-            settings_active_until=fa_location.settings.active_until if fa_location.settings.active_until else None,
+            settings_active_until=fa_location.settings.active_until
+            if fa_location.settings.active_until
+            else None,
         )
     )
     return Location.model_validate(
@@ -98,14 +104,16 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
             settings=LocationSettings(
                 active_from=fa_location.settings.active_from,
                 active_until=fa_location.settings.active_until,
-            )
+            ),
         )
     )
 
 
 @router.put("/{location_id}/update_settings")
 def update_location_settings(
-    bus: Annotated[MessageBus, Depends(get_bus)], location_id: str, fa_location_settings: LocationSettings
+    bus: Annotated[MessageBus, Depends(get_bus)],
+    location_id: str,
+    fa_location_settings: LocationSettings,
 ):
     with bus.uow as uow:
         if not uow.locations.get(uuid.UUID(location_id)):
@@ -126,7 +134,7 @@ def update_location_settings(
                 settings=LocationSettings(
                     active_from=new_location.settings.active_from,
                     active_until=new_location.settings.active_until,
-                )
+                ),
             )
         )
 

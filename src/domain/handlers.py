@@ -172,7 +172,8 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
             alias=cmd.alias,
             residual_short=model.Consumer(malo=cmd.residual_short_malo),
             settings=model.LocationSettings(
-                active_from=cmd.settings_active_from, active_until=cmd.settings_active_until
+                active_from=cmd.settings_active_from,
+                active_until=cmd.settings_active_until,
             ),
         )
         uow.locations.add(location)
@@ -180,13 +181,14 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
         return location
 
 
-def update_location_settings(cmd: commands.UpdateLocationSettings, uow: unit_of_work.AbstractUnitOfWork):
+def update_location_settings(
+    cmd: commands.UpdateLocationSettings, uow: unit_of_work.AbstractUnitOfWork
+):
     with uow:
         location: model.Location = uow.locations.get(UUID(cmd.location_id))
 
         location.settings = model.LocationSettings(
-            active_from=cmd.settings_active_from,
-            active_until=cmd.settings_active_until
+            active_from=cmd.settings_active_from, active_until=cmd.settings_active_until
         )
         uow.locations.update(location)
         uow.commit()

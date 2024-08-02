@@ -102,8 +102,8 @@ class LocationSettings(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     location_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("locations.id"))
     location: Mapped[Optional[Location]] = relationship(
-        back_populates="settings", foreign_keys=[location_id],
+        back_populates="settings",
+        foreign_keys=[location_id],
     )
     active_from: Mapped[datetime] = mapped_column(DateTime)
     active_until: Mapped[Optional[datetime]] = mapped_column(DateTime)
-

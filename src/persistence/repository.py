@@ -14,7 +14,7 @@ from src.persistence.sqlalchemy import (
 )
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class AbstractRepository(ABC, Generic[T]):
@@ -146,7 +146,9 @@ class LocationRepository(
     AbstractRepository[model.Location],  # LocationRepositoryBase
 ):
     def db_to_domain(self, db_obj: DBLocation) -> model.Location:
-        def settings_to_domain(db_setting: DBLocationSettings) -> model.LocationSettings:
+        def settings_to_domain(
+            db_setting: DBLocationSettings,
+        ) -> model.LocationSettings:
             if db_setting is None:
                 return None
             return model.LocationSettings(
@@ -203,11 +205,15 @@ class LocationRepository(
         )
 
     def domain_to_db(self, domain_obj: model.Location) -> DBLocation:
-        def settings_to_db(domain_id: str, settings: model.LocationSettings) -> DBLocationSettings:
+        def settings_to_db(
+            domain_id: str, settings: model.LocationSettings
+        ) -> DBLocationSettings:
             if settings is None:
                 return None
             # recreate value object
-            self._session.query(LocationSettings).filter_by(location_id=domain_id).delete()  # todo too dirty?
+            self._session.query(LocationSettings).filter_by(
+                location_id=domain_id
+            ).delete()  # todo too dirty?
             return DBLocationSettings(
                 active_from=settings.active_from,
                 active_until=settings.active_until,

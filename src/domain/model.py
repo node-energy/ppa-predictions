@@ -111,9 +111,13 @@ class Location(AggregateRoot):
 
         def clip_to_time_range(df: pd.DataFrame) -> pd.DataFrame:
             return df[
-                (df.index >= self.settings.active_from) & (
-                    df.index < self.settings.active_until if self.settings.active_until else True)
-                ]
+                (df.index >= self.settings.active_from)
+                & (
+                    df.index < self.settings.active_until
+                    if self.settings.active_until
+                    else True
+                )
+            ]
 
         short_prediction_df = (
             total_consumption_df - total_production_df
@@ -156,7 +160,9 @@ class Location(AggregateRoot):
             predictions = [p for p in self.predictions if p.type == type]
 
         predictions_to_remove = sorted(predictions, reverse=True)[keep:]
-        self.predictions = [p for p in self.predictions if p not in predictions_to_remove]
+        self.predictions = [
+            p for p in self.predictions if p not in predictions_to_remove
+        ]
 
 
 @dataclass(kw_only=True)
