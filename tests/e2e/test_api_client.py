@@ -63,7 +63,7 @@ class TestLocation:
 
         location_id = post_response.json()["id"]
         json = {"active_from": "2024-01-01T00:00:00", "active_until": "2024-01-10T00:00:00"}
-        response = client.put(f"/locations/{location_id}/update_settings", json=json)
+        response = client.put(f"/locations/{location_id}/settings", json=json)
         assert response.status_code == 200
         assert response.json()["settings"]["active_until"] == "2024-01-10T00:00:00"
 

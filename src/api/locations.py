@@ -109,7 +109,7 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
     )
 
 
-@router.put("/{location_id}/update_settings")
+@router.put("/{location_id}/settings")
 def update_location_settings(
     bus: Annotated[MessageBus, Depends(get_bus)],
     location_id: str,
