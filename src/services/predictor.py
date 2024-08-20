@@ -74,15 +74,13 @@ class AbstractPredictor(abc.ABC):
 
     def _create_future_df(self):
         future_df = pd.DataFrame(
-            {
-                "datetime": pd.date_range(
-                    start=self.settings.output_period.start,
-                    end=self.settings.output_period.end,
-                    freq="15min",
-                )
-            }
+            index=pd.date_range(
+                start=self.settings.output_period.start,
+                end=self.settings.output_period.end,
+                freq=pd.offsets.Minute(15),
+                inclusive="left",  # end is exclusive
+            )
         )
-        future_df.set_index("datetime", inplace=True)
         return self._add_input_fields(future_df)
 
     def _add_input_fields(

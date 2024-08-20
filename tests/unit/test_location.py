@@ -3,19 +3,17 @@ import datetime as dt
 import pandas as pd
 from pandas.testing import assert_frame_equal
 from src.domain.model import (
-    Consumer,
     HistoricLoadData,
     Location,
     Prediction,
     PredictionType,
     Producer,
-    State,
 )
 
 
 def create_df_with_constant_values(value=42):
-    start = dt.datetime.now().replace(microsecond=0, second=0, minute=0)
-    end = start + dt.timedelta(days=30)
+    start = dt.datetime(2023, 12, 1, 0, 0)
+    end = start + dt.timedelta(days=365)
     df = pd.DataFrame(
         {"datetime": pd.date_range(start=start, end=end, freq="15min"), "value": value}
     )
@@ -71,7 +69,10 @@ class TestLocation:
         prediction_residual_short = next(
             p for p in location.predictions if p.type == PredictionType.RESIDUAL_SHORT
         )
-        assert_frame_equal(prediction_residual_short.df, input_df)
+
+        mask = (input_df.index >= location.settings.active_from) & (
+                    input_df.index < location.settings.active_until if location.settings.active_until else True)
+        assert_frame_equal(prediction_residual_short.df, input_df[mask])
 
     def test_delete_oldest_predictions(self, location: Location):
         oldest = Prediction(

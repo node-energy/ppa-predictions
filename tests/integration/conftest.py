@@ -7,14 +7,14 @@ import random
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.orm import sessionmaker, clear_mappers
 from src.domain import model
-from src.persistence.sqlalchemy import UUIDBase
+from src.persistence.sqlalchemy import Base
 
 
 @pytest.fixture
 def in_memory_sqlite_db():
     engine = create_engine("sqlite:///db1.db") #create_engine("sqlite:///:memory:")
     #metadata = MetaData()
-    metadata = UUIDBase.metadata
+    metadata = Base.metadata
     metadata.create_all(engine)
     return engine
 

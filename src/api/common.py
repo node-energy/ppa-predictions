@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from src.infrastructure.message_bus import MessageBus
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 async def get_bus():
