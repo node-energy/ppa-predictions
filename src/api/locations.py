@@ -33,6 +33,18 @@ class Location(BaseModel):
     residual_long: Optional[ResidualLong] = None
     producers: Optional[list[Producer]] = []
 
+    @classmethod
+    def from_domain(cls, location: DLocation):
+        return cls(
+            state=location.state,
+            alias=location.alias,
+            id=str(location.id),
+            residual_short=ResidualShort(malo=location.residual_short.malo),
+            residual_long=ResidualLong(malo=location.residual_long.malo) if location.residual_long else None,
+            producers=[Producer(malo=p.malo) for p in location.producers]
+
+        )
+
 
 @router.get("/")
 def get_locations(bus: Annotated[MessageBus, Depends(get_bus)]):
@@ -41,12 +53,7 @@ def get_locations(bus: Annotated[MessageBus, Depends(get_bus)]):
         type_adapter = TypeAdapter(list[Location])
 
         locations = [
-            Location(
-                id=str(loc.id),
-                state=loc.state,
-                alias=loc.alias,
-                residual_short=ResidualShort(malo=loc.residual_short.malo),
-            )
+            Location.from_domain(loc)
             for loc in locations
         ]
 
@@ -62,12 +69,7 @@ def get_location(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str)
         if not location:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         return Location.model_validate(
-            Location(
-                id=str(location.id),
-                state=location.state,
-                alias=location.alias,
-                residual_short=ResidualShort(malo=location.residual_short.malo),
-            )
+            Location.from_domain(location)
         )
 
 
@@ -86,14 +88,7 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
         )
     )
     return Location.model_validate(
-        Location(
-            id=str(location.id),
-            state=location.state,
-            alias=location.alias,
-            residual_short=ResidualShort(malo=location.residual_short.malo),
-            residual_long=ResidualLong(malo=location.residual_long.malo) if location.residual_long else None,
-            producers=[Producer(malo=p.malo) for p in location.producers]
-        )
+        Location.from_domain(location)
     )
 
 
