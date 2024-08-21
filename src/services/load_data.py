@@ -1,7 +1,10 @@
 import abc
+import datetime
 import io
 import os
 import datetime as dt
+import re
+from functools import cmp_to_key
 from typing import Collection
 
 import pandas as pd
@@ -34,7 +37,7 @@ class EnercastFtpDataRetriever(AbstractLoadDataRetriever):
 
     def _open_ftp(self):
         self._ssh = SSHClient()
-        self._ssh.set_missing_host_key_policy(AutoAddPolicy())
+        self._ssh.set_missing_host_key_policy(AutoAddPolicy())  # todo: change to RejectPolicy
         self._ssh.connect(
             hostname=self.host,
             username=self.username,
@@ -43,7 +46,7 @@ class EnercastFtpDataRetriever(AbstractLoadDataRetriever):
         )
         self._sftp: SFTPClient = self._ssh.open_sftp()
 
-    def csv_to_dataframe(self, file_obj):
+    def _csv_to_dataframe(self, file_obj):
         df = pd.read_csv(file_obj, sep=";", decimal=",", index_col=None, header=0)
         return df
 
@@ -60,13 +63,13 @@ class EnercastFtpDataRetriever(AbstractLoadDataRetriever):
                 ):
                     file_names.append(file_name)
 
-            file_names = sorted(file_names)[-1:]
+            file_names = sorted(file_names, key=cmp_to_key(self._compare_file_names), reverse=True)
             dfs = []
             for file_name in file_names:
                 file_obj = io.BytesIO()
                 self._sftp.getfo(file_name, file_obj)
                 file_obj.seek(0)
-                dfs.append(self.csv_to_dataframe(file_obj))
+                dfs.append(self._csv_to_dataframe(file_obj))
             df = pd.concat(dfs, axis=0, ignore_index=True)
             df.rename(
                 columns={df.columns[0]: "datetime", df.columns[1]: "value"},
@@ -74,6 +77,8 @@ class EnercastFtpDataRetriever(AbstractLoadDataRetriever):
             )
             df.set_index("datetime", inplace=True)
             df.index = pd.to_datetime(df.index)
+            df = df[~df.index.duplicated(keep='first')]
+            df = df.sort_index()
             return df
 
         except Exception as exc:
@@ -83,6 +88,24 @@ class EnercastFtpDataRetriever(AbstractLoadDataRetriever):
             self._sftp.close()
             self._ssh.close()
 
+    @staticmethod
+    def _compare_file_names(file_name_1, file_name_2):
+        """
+        compares the filenames by the timestamp in the filename
+        file name convention is <asset_name>_<timestamp>.csv
+        """
+        pattern = re.compile(".*_(?P<timestamp>(\d{4})(-\d{2})(-\d{2})(-\d{2})-(\d{2})-(\d{2})).csv")
+        format = "%Y-%m-%d-%H-%M-%S"
+        timestamp_1 = re.fullmatch(pattern, file_name_1)["timestamp"]
+        timestamp_1 = datetime.datetime.strptime(timestamp_1, format)
+        timestamp_2 = re.fullmatch(pattern, file_name_2)["timestamp"]
+        timestamp_2 = datetime.datetime.strptime(timestamp_2, format)
+        if timestamp_1 < timestamp_2:
+            return -1
+        if timestamp_1 > timestamp_2:
+            return 1
+        return 0
+
 
 class EnercastApiDataRetriever(AbstractLoadDataRetriever):
     def __init__(self):
@@ -91,7 +114,7 @@ class EnercastApiDataRetriever(AbstractLoadDataRetriever):
     def get_data(
         self, market_location_number: str, measurand: str = "positive"
     ) -> pd.DataFrame:
-        pass
+        raise NotImplementedError
 
 
 class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
@@ -125,7 +148,7 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
 
         locations = MeteringOrMarketLocation.objects.filter(
             number=market_location_number,
-            # site__is_ppaaas=True
+            site__is_ppaaas=True
         )
         if not locations.exists():
             raise NoMeteringOrMarketLocationFound(market_location_number)

@@ -107,8 +107,8 @@ def calculate_predictions(
             )
 
             # Erzeuerungsprognose Enercast
-            enercast_data_retriever = load_data.EnercastFtpDataRetriever()
             if location.has_production:
+                enercast_data_retriever = load_data.EnercastFtpDataRetriever()
                 for producer in location.producers:
                     location.add_prediction(
                         model.Prediction(
