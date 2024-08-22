@@ -131,9 +131,9 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
     def __init__(self):
         os.environ["SECRET_KEY"] = "topsecret"
         os.environ["DATABASE_URL"] = settings.optinode_db_connection_string
-        os.environ[
-            "DJANGO_SETTINGS_MODULE"
-        ] = "optinode.webserver.config.settings.package"
+        os.environ["DJANGO_SETTINGS_MODULE"] = (
+            "optinode.webserver.config.settings.package"
+        )
         import django
 
         django.setup()
@@ -159,7 +159,7 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
 
         locations = MeteringOrMarketLocation.objects.filter(
             number=market_location_number,
-            site__is_ppaaas=True
+             site__is_ppaaas=True
         )
         if not locations.exists():
             raise NoMeteringOrMarketLocationFound(market_location_number)

@@ -1,3 +1,4 @@
+import datetime as dt
 import json
 import uuid
 from typing import Annotated, Optional
@@ -25,6 +26,11 @@ class Producer(BaseModel):
     malo: str
 
 
+class LocationSettings(BaseModel):
+    active_from: dt.datetime
+    active_until: Optional[dt.datetime] = None
+
+
 class Location(BaseModel):
     state: str
     alias: Optional[str] = None
@@ -32,6 +38,7 @@ class Location(BaseModel):
     residual_short: ResidualShort
     residual_long: Optional[ResidualLong] = None
     producers: Optional[list[Producer]] = []
+    settings: LocationSettings
 
     @classmethod
     def from_domain(cls, location: DLocation):
@@ -41,8 +48,13 @@ class Location(BaseModel):
             id=str(location.id),
             residual_short=ResidualShort(malo=location.residual_short.malo),
             residual_long=ResidualLong(malo=location.residual_long.malo) if location.residual_long else None,
-            producers=[Producer(malo=p.malo) for p in location.producers]
-
+            producers=[Producer(malo=p.malo) for p in location.producers],
+            settings=LocationSettings(
+                active_from=location.settings.active_from,
+                active_until=location.settings.active_until
+                if location.settings.active_until
+                else None,
+        ),
         )
 
 
@@ -84,12 +96,46 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
             alias=fa_location.alias,
             residual_short_malo=residual_short.malo,
             residual_long_malo=residual_long.malo,
-            producer_malos=[producer.malo for producer in fa_location.producers]
+            producer_malos=[producer.malo for producer in fa_location.producers],
+            settings_active_from=fa_location.settings.active_from,
+            settings_active_until=fa_location.settings.active_until
+            if fa_location.settings.active_until
+            else None,
         )
     )
     return Location.model_validate(
         Location.from_domain(location)
     )
+
+
+@router.put("/{location_id}/settings")
+def update_location_settings(
+    bus: Annotated[MessageBus, Depends(get_bus)],
+    location_id: str,
+    fa_location_settings: LocationSettings,
+):
+    with bus.uow as uow:
+        if not uow.locations.get(uuid.UUID(location_id)):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        new_location: DLocation = bus.handle(
+            commands.UpdateLocationSettings(
+                location_id=location_id,
+                settings_active_from=fa_location_settings.active_from,
+                settings_active_until=fa_location_settings.active_until,
+            )
+        )
+        return Location.model_validate(
+            Location(
+                id=str(new_location.id),
+                state=new_location.state,
+                alias=new_location.alias,
+                residual_short=ResidualShort(malo=new_location.residual_short.malo),
+                settings=LocationSettings(
+                    active_from=new_location.settings.active_from,
+                    active_until=new_location.settings.active_until,
+                ),
+            )
+        )
 
 
 @router.post("/{location_id}/update_location_data")

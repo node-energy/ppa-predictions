@@ -23,6 +23,11 @@ class Entity:
         cls.__hash__ = Entity.__hash__
 
 
+@dataclass(frozen=True)
+class ValueObject:
+    pass
+
+
 @dataclass(kw_only=True)
 class AggregateRoot(Entity):
     events: list = field(default_factory=list)
@@ -59,6 +64,7 @@ class State(str, Enum):
 @dataclass(kw_only=True)
 class Location(AggregateRoot):
     __hash__ = AggregateRoot.__hash__
+    settings: LocationSettings
     state: State
     alias: Optional[str] = None
     producers: list[Producer] = field(default_factory=list)
@@ -76,7 +82,6 @@ class Location(AggregateRoot):
         )
 
     def calculate_local_consumption(self):
-        result = None
         if not self.has_production:
             if not self.residual_short.historic_load_data:
                 return None
@@ -99,12 +104,23 @@ class Location(AggregateRoot):
         total_consumption_df = self.get_most_recent_prediction(PredictionType.CONSUMPTION).df
         total_production_df = self.get_most_recent_prediction(PredictionType.PRODUCTION).df
 
+        def clip_to_time_range(df: pd.DataFrame) -> pd.DataFrame:
+            return df[
+                (df.index >= self.settings.active_from)
+                & (
+                    df.index < self.settings.active_until
+                    if self.settings.active_until
+                    else True
+                )
+            ]
+
         short_prediction_df = (
             total_consumption_df - total_production_df
             if self.has_production
             else total_consumption_df
         )
         short_prediction_df[short_prediction_df < 0] = 0
+        short_prediction_df = clip_to_time_range(short_prediction_df)
         self.predictions.append(
             Prediction(df=short_prediction_df, type=PredictionType.RESIDUAL_SHORT)
         )
@@ -112,6 +128,7 @@ class Location(AggregateRoot):
         if self.has_production:
             long_prediction_df = total_production_df - total_consumption_df
             long_prediction_df[long_prediction_df < 0] = 0
+            long_prediction_df = clip_to_time_range(long_prediction_df)
             self.predictions.append(
                 Prediction(df=long_prediction_df, type=PredictionType.RESIDUAL_LONG)
             )
@@ -138,7 +155,9 @@ class Location(AggregateRoot):
             predictions = [p for p in self.predictions if p.type == type]
 
         predictions_to_remove = sorted(predictions, reverse=True)[keep:]
-        self.predictions = [p for p in self.predictions if p not in predictions_to_remove]
+        self.predictions = [
+            p for p in self.predictions if p not in predictions_to_remove
+        ]
 
 
 
@@ -199,3 +218,9 @@ class Prediction(Entity):
 @dataclass
 class PredictionSettings:
     location: Location
+
+
+@dataclass(kw_only=True, frozen=True)
+class LocationSettings(ValueObject):
+    active_from: datetime
+    active_until: Optional[datetime]

@@ -87,6 +87,28 @@ def calculate_predictions(
             datetime.datetime.min.time(),
         )
         end_date = start_date + datetime.timedelta(days=7)
+
+        if (
+            location.settings.active_until is not None
+            and start_date > location.settings.active_until
+        ):
+            logger.info(
+                msg="Won't calculate predictions for location as <active_until> is in the past",
+                location=location.alias,
+                active_until=location.settings.active_until,
+            )
+            return
+        if end_date < location.settings.active_from:
+            logger.info(
+                msg="Won't calculate predictions for location as <active_from> is beyond the prediction horizon",
+                location=location.alias,
+                active_from=location.settings.active_from,
+            )
+            return
+        start_date = max(start_date, location.settings.active_from)
+        if location.settings.active_until is not None:
+            end_date = min(end_date, location.settings.active_until)
+
         predictor_setting = predictor.PredictorSettings(
             state=location.state,
             output_period=predictor.Period(start=start_date, end=end_date),
@@ -160,8 +182,26 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
             residual_short=model.Consumer(malo=cmd.residual_short_malo),
             residual_long=model.Producer(malo=cmd.residual_long_malo) if cmd.residual_long_malo else None,
             producers=[model.Producer(malo=malo) for malo in cmd.producer_malos],
+            settings=model.LocationSettings(
+                active_from=cmd.settings_active_from,
+                active_until=cmd.settings_active_until,
+            ),
         )
         uow.locations.add(location)
+        uow.commit()
+        return location
+
+
+def update_location_settings(
+    cmd: commands.UpdateLocationSettings, uow: unit_of_work.AbstractUnitOfWork
+):
+    with uow:
+        location: model.Location = uow.locations.get(UUID(cmd.location_id))
+
+        location.settings = model.LocationSettings(
+            active_from=cmd.settings_active_from, active_until=cmd.settings_active_until
+        )
+        uow.locations.update(location)
         uow.commit()
         return location
 
@@ -172,6 +212,7 @@ EVENT_HANDLERS = {
 
 COMMAND_HANDLERS = {
     commands.CreateLocation: add_location,
+    commands.UpdateLocationSettings: update_location_settings,
     commands.UpdateHistoricData: update_historic_data,
     commands.CalculatePredictions: calculate_predictions,
     commands.SendPredictions: send_predictions,

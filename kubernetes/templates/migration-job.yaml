@@ -7,6 +7,7 @@ metadata:
     "helm.sh/hook-delete-policy": before-hook-creation
     "helm.sh/hook-weight": "1"
 spec:
+  ttlSecondsAfterFinished: 100
   template:
     metadata:
       annotations:
@@ -22,7 +23,7 @@ spec:
       containers:
         - name: django
           image: "nodeenergy.azurecr.io/ppa-predictions:latest"
-          command: ['/bin/sh', '/code/run_migrations.sh']
+          command: ['/bin/bash', '/code/run_migrations.sh']
           envFrom:
             - configMapRef:
                 name: ppa-predictions-config
