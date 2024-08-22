@@ -72,7 +72,7 @@ class Location(AggregateRoot):
 
     def get_most_recent_prediction(self, prediction_type):
         return next(
-            (p for p in sorted(self.predictions) if p.type == prediction_type), None
+            (p for p in sorted(self.predictions, reverse=True) if p.type == prediction_type), None
         )
 
     def calculate_local_consumption(self):
@@ -95,14 +95,9 @@ class Location(AggregateRoot):
         )  # TODO currently we only allow one producer per location
 
     def calculate_location_residual_loads(self):
-        total_consumption_df = next(
-            (p.df for p in self.predictions if p.type == PredictionType.CONSUMPTION),
-            None,
-        )
-        total_production_df = next(
-            (p.df for p in self.predictions if p.type == PredictionType.PRODUCTION),
-            None,
-        )
+        # todo cut prognosis df, so that it starts at prognosis horizon (next day)
+        total_consumption_df = self.get_most_recent_prediction(PredictionType.CONSUMPTION).df
+        total_production_df = self.get_most_recent_prediction(PredictionType.PRODUCTION).df
 
         short_prediction_df = (
             total_consumption_df - total_production_df
@@ -189,15 +184,15 @@ class PredictionType(str, Enum):
 @dataclass(kw_only=True)
 class Prediction(Entity):
     __hash__ = Entity.__hash__
-    updated: datetime = field(default_factory=datetime.now)
+    created: datetime = field(default_factory=datetime.now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
     df: pd.DataFrame
     type: PredictionType
 
     def __eq__(self, other):
         return self.id == other.id
 
-    def __gt__(self, other: HistoricLoadData):
-        return self.updated > other.updated
+    def __gt__(self, other: Prediction):
+        return self.created > other.created
 
 
 # value_object
