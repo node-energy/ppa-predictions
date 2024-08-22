@@ -8,10 +8,9 @@ from typing import Optional
 from dataclasses import dataclass
 from enum import Enum
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split, GridSearchCV
 
-# from src.domain.value_objects import Period
+from src.utils.timezone import TIMEZONE_BERLIN
 
 
 @dataclass
@@ -79,6 +78,7 @@ class AbstractPredictor(abc.ABC):
                     start=self.settings.output_period.start,
                     end=self.settings.output_period.end,
                     freq="15min",
+                    tz=TIMEZONE_BERLIN,
                 )
             }
         )
