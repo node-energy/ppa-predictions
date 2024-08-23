@@ -27,8 +27,8 @@ class Producer(BaseModel):
 
 
 class LocationSettings(BaseModel):
-    active_from: dt.datetime
-    active_until: Optional[dt.datetime] = None
+    active_from: dt.date
+    active_until: Optional[dt.date] = None
 
 
 class Location(BaseModel):

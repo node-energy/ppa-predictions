@@ -3,7 +3,7 @@ from __future__ import annotations
 import abc
 import uuid
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date
 from enum import Enum
 from typing import Optional
 from dataclasses import dataclass, field
@@ -106,9 +106,9 @@ class Location(AggregateRoot):
 
         def clip_to_time_range(df: pd.DataFrame) -> pd.DataFrame:
             return df[
-                (df.index >= self.settings.active_from)
+                (df.index.date >= self.settings.active_from)
                 & (
-                    df.index < self.settings.active_until
+                    df.index.date < self.settings.active_until
                     if self.settings.active_until
                     else True
                 )
@@ -222,5 +222,5 @@ class PredictionSettings:
 
 @dataclass(kw_only=True, frozen=True)
 class LocationSettings(ValueObject):
-    active_from: datetime
-    active_until: Optional[datetime]
+    active_from: date
+    active_until: Optional[date]

@@ -22,8 +22,8 @@ class TestLocationRepository:
         session = sqlite_session_factory()
         repo = LocationRepository(session=session, db_cls=DBLocation)
         settings = LocationSettings(
-            active_from=dt.datetime(2024, 1, 1, 0, 0),
-            active_until=dt.datetime(2025, 1, 1, 0, 0),
+            active_from=dt.date(2024, 1, 1),
+            active_until=dt.date(2025, 1, 1),
         )
         residual_short = Consumer(malo="malo-1")
         residual_short.historic_load_data = HistoricLoadData(df=create_df_with_constant_values())

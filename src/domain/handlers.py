@@ -8,7 +8,7 @@ from src.domain import commands, events
 from src.domain import model
 from src.infrastructure import unit_of_work
 from src.services import predictor, load_data, data_store
-
+from src.utils.timezone import TIMEZONE_BERLIN
 
 logger = logging.getLogger(__name__)
 
@@ -82,10 +82,7 @@ def calculate_predictions(
         if local_consumption_df is None:
             return
 
-        start_date = datetime.datetime.combine(
-            datetime.date.today() + datetime.timedelta(days=1),
-            datetime.datetime.min.time(),
-        )
+        start_date = datetime.date.today() + datetime.timedelta(days=1)
         end_date = start_date + datetime.timedelta(days=7)
 
         if (
@@ -111,7 +108,10 @@ def calculate_predictions(
 
         predictor_setting = predictor.PredictorSettings(
             state=location.state,
-            output_period=predictor.Period(start=start_date, end=end_date),
+            output_period=predictor.Period(
+                start=datetime.datetime.combine(start_date, datetime.time.min, tzinfo=TIMEZONE_BERLIN),
+                end=datetime.datetime.combine(end_date, datetime.time.max, tzinfo=TIMEZONE_BERLIN)
+            ),
         )
         rf_predictor = predictor.RandomForestRegressionPredictor(
             input_df=local_consumption_df, settings=predictor_setting

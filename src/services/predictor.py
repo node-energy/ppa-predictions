@@ -10,8 +10,6 @@ from enum import Enum
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split, GridSearchCV
 
-from src.utils.timezone import TIMEZONE_BERLIN
-
 
 @dataclass
 class Period:
@@ -78,7 +76,6 @@ class AbstractPredictor(abc.ABC):
                 end=self.settings.output_period.end,
                 freq=pd.offsets.Minute(15),
                 inclusive="left",  # end is exclusive
-                tz=TIMEZONE_BERLIN,
             )
         )
         return self._add_input_fields(future_df)
