@@ -74,6 +74,8 @@ class EnercastFtpDataRetriever(AbstractLoadDataRetriever):
 
             file_names = sorted(file_names, key=cmp_to_key(self._compare_file_names), reverse=True)
             dfs = []
+            # todo this is pretty slow, we could think about only downloading files where the timestamp in the file name
+            # indicates that it contains data for the relevant time period
             for file_name in file_names:
                 file_obj = io.BytesIO()
                 self._sftp.getfo(file_name, file_obj)
