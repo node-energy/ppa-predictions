@@ -241,6 +241,7 @@ class LocationRepository(
                 historic_load_data=historic_load_data_to_db(
                     component.historic_load_data
                 ),
+                prognosis_data_retriever=component.prognosis_data_retriever.value if hasattr(component, "prognosis_data_retriever") else None,
             )
 
         def prediction_to_db(prediction: model.Prediction) -> DBPrediction:

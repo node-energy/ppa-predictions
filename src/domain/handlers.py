@@ -180,8 +180,8 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
             state=cmd.state,
             alias=cmd.alias,
             residual_short=model.Consumer(malo=cmd.residual_short_malo),
-            residual_long=model.Producer(malo=cmd.residual_long_malo) if cmd.residual_long_malo else None,
-            producers=[model.Producer(malo=malo) for malo in cmd.producer_malos],
+            residual_long=model.Producer(malo=cmd.residual_long_malo, prognosis_data_retriever=DataRetriever.ENERCAST_SFTP) if cmd.residual_long_malo else None,  # TODO use a separate Model here, Producer seems not fit. Mayben just FeedinMalo, same applies for Consumer above
+            producers=[model.Producer(malo=p["malo"], prognosis_data_retriever=p["prognosis_data_retriever"]) for p in cmd.producers],
             settings=model.LocationSettings(
                 active_from=cmd.settings_active_from,
                 active_until=cmd.settings_active_until,

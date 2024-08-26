@@ -160,6 +160,24 @@ class Location(AggregateRoot):
         ]
 
 
+class DataRetriever(str, Enum):
+    # prognosis data retrievers
+    ENERCAST_SFTP = "enercast_sftp"
+    ENERCAST_API = "enercast_api"
+    IMPULS_ENERGY_TRADING_SFTP = "impuls_energy_trading_sftp"
+
+
+# class MeteringDirection(str, Enum):
+#     FEEDIN = "feedin"
+#     FEEDOUT = "feedout"
+#
+#
+# @dataclass(kw_only=True)
+# class MarketLocation(Entity):
+#     number: str
+#     metering_direction: MeteringDirection
+#     historic_load_data: Optional[HistoricLoadData] = None
+
 
 @dataclass(kw_only=True)
 class Component(abc.ABC):
@@ -171,7 +189,7 @@ class Component(abc.ABC):
 @dataclass(kw_only=True)
 class Producer(Component, Entity):
     __hash__ = Entity.__hash__
-    pass
+    prognosis_data_retriever: DataRetriever
 
 
 @dataclass(kw_only=True)
@@ -183,7 +201,7 @@ class Consumer(Component, Entity):
 @dataclass(kw_only=True)
 class HistoricLoadData(Entity):
     __hash__ = Entity.__hash__
-    updated: datetime = field(default_factory=datetime.now)
+    updated: datetime = field(default_factory=datetime.now) # todo this probably does not work as expected, see Prediction
     df: pd.DataFrame
 
     def __eq__(self, other):

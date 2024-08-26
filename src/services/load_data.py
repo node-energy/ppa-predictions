@@ -13,6 +13,7 @@ from pandera.typing import DataFrame
 from paramiko import SSHClient, SFTPClient, AutoAddPolicy
 
 from src.config import settings
+from src.domain.model import DataRetriever
 from src.utils.dataframe_schema import TimeSeriesSchema
 from src.utils.exceptions import NoMeteringOrMarketLocationFound, ConflictingEnergyData
 from src.utils.timezone import TIMEZONE_BERLIN
@@ -38,7 +39,24 @@ class APILoadDataRetriever(AbstractLoadDataRetriever):
         raise NotImplementedError()
 
 
-class EnercastFtpDataRetriever(AbstractLoadDataRetriever):
+class SftpMixin:
+    def _open_sftp(self):
+        self._ssh = SSHClient()
+        self._ssh.set_missing_host_key_policy(AutoAddPolicy())  # todo: change to RejectPolicy
+        self._ssh.connect(
+            hostname=self.host,
+            username=self.username,
+            password=self.password,
+            timeout=60,
+        )
+        self._sftp: SFTPClient = self._ssh.open_sftp()
+
+    def _close_sftp(self):
+        self._sftp.close()
+        self._ssh.close()
+
+
+class EnercastSftpDataRetriever(AbstractLoadDataRetriever):
     def __init__(self):
         self.username: str = settings.enercast_ftp_username
         self.password: str = settings.enercast_ftp_pass
@@ -129,6 +147,23 @@ class EnercastApiDataRetriever(AbstractLoadDataRetriever):
         raise NotImplementedError
 
 
+class IetSftpGenerationDataRetriever(AbstractLoadDataRetriever, SftpMixin):
+    def __init__(self):
+        self.username: str = settings.iet_sftp_username
+        self.password: str = settings.iet_sftp_pass
+        self.host: str = settings.iet_sftp_host
+
+    def _get_data(self, market_location_number: str, measurand: str) -> DataFrame[TimeSeriesSchema]:
+        raise NotImplementedError()
+        # try:
+        #     self._open_ftp()
+        #     <get data here>
+        # except Exception as exc:
+        #     print(exc)
+        # finally:
+        #     self._close_sftp()
+
+
 class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
     def __init__(self):
         os.environ["SECRET_KEY"] = "topsecret"
@@ -185,3 +220,10 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
             for loc in locations
         ]
         return all([energy_data[0].equals(ed) for ed in energy_data[1:]])
+
+
+DATA_RETRIEVER_MAP = {
+    DataRetriever.ENERCAST_SFTP: EnercastSftpDataRetriever,
+    DataRetriever.ENERCAST_API: EnercastApiDataRetriever,
+    DataRetriever.IMPULS_ENERGY_TRADING_SFTP: IetSftpGenerationDataRetriever,
+}

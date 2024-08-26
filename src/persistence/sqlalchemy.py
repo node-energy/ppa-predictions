@@ -72,6 +72,19 @@ class Component(Base, UUIDMixin):
         foreign_keys="HistoricLoadData.component_id",
         cascade="all, delete-orphan",
     )
+    prognosis_data_retriever: Mapped[Optional[str]]
+
+
+# class MarketLocation(Base, UUIDMixin):
+#     __tablename__ = "marketlocations"
+#
+#     number = ""
+#     metering_direction = ""
+#     historic_load_data: Mapped[Optional[HistoricLoadData]] = relationship(
+#         back_populates="component",
+#         foreign_keys="HistoricLoadData.component_id",
+#         cascade="all, delete-orphan",
+#     )
 
 
 class Prediction(Base, UUIDMixin):

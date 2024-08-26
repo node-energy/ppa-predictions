@@ -8,8 +8,7 @@ from pydantic import BaseModel, TypeAdapter
 from .common import get_bus, BasePagination
 from src.infrastructure.message_bus import MessageBus
 from src.domain import commands
-from src.domain.model import Location as DLocation, State
-
+from src.domain.model import Location as DLocation, State, DataRetriever
 
 router = APIRouter(prefix="/locations")
 
@@ -24,6 +23,7 @@ class ResidualLong(BaseModel):
 
 class Producer(BaseModel):
     malo: str
+    prognosis_data_retriever: DataRetriever
 
 
 class LocationSettings(BaseModel):
@@ -48,7 +48,12 @@ class Location(BaseModel):
             id=str(location.id),
             residual_short=ResidualShort(malo=location.residual_short.malo),
             residual_long=ResidualLong(malo=location.residual_long.malo) if location.residual_long else None,
-            producers=[Producer(malo=p.malo) for p in location.producers],
+            producers=[
+                Producer(
+                    malo=p.malo,
+                    prognosis_data_retriever=DataRetriever(p.prognosis_data_retriever)
+                ) for p in location.producers
+            ],
             settings=LocationSettings(
                 active_from=location.settings.active_from,
                 active_until=location.settings.active_until
@@ -96,7 +101,7 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
             alias=fa_location.alias,
             residual_short_malo=residual_short.malo,
             residual_long_malo=residual_long.malo,
-            producer_malos=[producer.malo for producer in fa_location.producers],
+            producers=[{"malo": producer.malo, "prognosis_data_retriever": producer.prognosis_data_retriever} for producer in fa_location.producers],   # TODO other datatype e.g. namedtuple possible here?
             settings_active_from=fa_location.settings.active_from,
             settings_active_until=fa_location.settings.active_until
             if fa_location.settings.active_until
