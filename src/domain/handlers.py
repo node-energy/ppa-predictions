@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import logging
 import datetime
-from uuid import uuid4, UUID
+from uuid import UUID
+
+import src.enums
 from src.config import settings
 from src.domain import commands, events
 from src.domain import model
+from src.domain.model import MarketLocation
 from src.infrastructure import unit_of_work
 from src.services import predictor, load_data, data_store
 from src.utils.timezone import TIMEZONE_BERLIN
@@ -43,28 +46,28 @@ def update_historic_data(
 ):
     with uow:
 
-        def get_historic_load_data(malo: str, measurand: str = "positive"):
+        def get_historic_load_data(malo: MarketLocation):
             result = None
             try:
-                df = ldr.get_data(malo, measurand)
+                df = ldr.get_data(malo.number, malo.measurand)
                 result = model.HistoricLoadData(df=df)
             except Exception as exc:
-                logger.error("Could not get historic data for malo %s", malo)
+                logger.error("Could not get historic data for market_location %s", malo)
                 logger.error(exc)
             return result
 
         location: model.Location = uow.locations.get(UUID(cmd.location_id))
 
-        if (hld := get_historic_load_data(location.residual_short.malo)) is not None:
+        if (hld := get_historic_load_data(location.residual_short)) is not None:
             location.residual_short.historic_load_data = hld
 
         if location.has_production:
-            if (hld := get_historic_load_data(location.residual_long.malo, "negative")) is not None:
+            if (hld := get_historic_load_data(location.residual_long)) is not None:
                 location.residual_long.historic_load_data = hld
 
         for producer in location.producers:
-            if (hld := get_historic_load_data(producer.malo, "negative")) is not None:
-                producer.historic_load_data = hld
+            if (hld := get_historic_load_data(producer.market_location)) is not None:
+                producer.market_location.historic_load_data = hld
 
         uow.locations.update(location)
         uow.commit()
@@ -124,20 +127,20 @@ def calculate_predictions(
             location.add_prediction(
                 model.Prediction(
                     df=local_consumption_prediction_df,
-                    type=model.PredictionType.CONSUMPTION,
+                    type=src.enums.PredictionType.CONSUMPTION,
                 )
             )
 
             # Erzeuerungsprognose Enercast
             if location.has_production:
-                enercast_data_retriever = load_data.EnercastFtpDataRetriever()
+                enercast_data_retriever = load_data.EnercastSftpDataRetriever()
                 for producer in location.producers:
                     location.add_prediction(
                         model.Prediction(
                             df=enercast_data_retriever.get_data(
-                                market_location_number=producer.malo
+                                market_location_number=producer.market_location.number
                             ),
-                            type=model.PredictionType.PRODUCTION
+                            type=src.enums.PredictionType.PRODUCTION
                         )
                     )
 
@@ -168,7 +171,7 @@ def send_predictions(
         with uow:
             location: model.Location = uow.locations.get(UUID(cmd.location_id))
             short_prediction = location.get_most_recent_prediction(
-                model.PredictionType.RESIDUAL_SHORT
+                src.enums.PredictionType.RESIDUAL_SHORT
             )
             if short_prediction:
                 dst.save_file(short_prediction, malo=location.residual_short.malo)
@@ -179,9 +182,21 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
         location = model.Location(
             state=cmd.state,
             alias=cmd.alias,
-            residual_short=model.Consumer(malo=cmd.residual_short_malo),
-            residual_long=model.Producer(malo=cmd.residual_long_malo, prognosis_data_retriever=DataRetriever.ENERCAST_SFTP) if cmd.residual_long_malo else None,  # TODO use a separate Model here, Producer seems not fit. Mayben just FeedinMalo, same applies for Consumer above
-            producers=[model.Producer(malo=p["malo"], prognosis_data_retriever=p["prognosis_data_retriever"]) for p in cmd.producers],
+            residual_short=model.MarketLocation(
+                number=cmd.residual_short_malo,
+                measurand=src.enums.Measurand.POSITIVE,
+            ),
+            residual_long=model.MarketLocation(
+                number=cmd.residual_long_malo,
+                measurand=src.enums.Measurand.NEGATIVE,
+            ) if cmd.residual_long_malo else None,
+            producers=[model.Producer(
+                market_location=model.MarketLocation(
+                    number=p["market_location_number"],
+                    measurand=src.enums.Measurand.NEGATIVE,
+                ),
+                prognosis_data_retriever=p["prognosis_data_retriever"]
+            ) for p in cmd.producers],
             settings=model.LocationSettings(
                 active_from=cmd.settings_active_from,
                 active_until=cmd.settings_active_until,

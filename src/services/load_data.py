@@ -13,7 +13,7 @@ from pandera.typing import DataFrame
 from paramiko import SSHClient, SFTPClient, AutoAddPolicy
 
 from src.config import settings
-from src.domain.model import DataRetriever
+from src.enums import Measurand, DataRetriever
 from src.utils.dataframe_schema import TimeSeriesSchema
 from src.utils.exceptions import NoMeteringOrMarketLocationFound, ConflictingEnergyData
 from src.utils.timezone import TIMEZONE_BERLIN
@@ -22,20 +22,20 @@ from src.utils.timezone import TIMEZONE_BERLIN
 class AbstractLoadDataRetriever(abc.ABC):
     @pandera.check_types
     def get_data(
-        self, market_location_number: str, measurand: str = "positive"
+        self, market_location_number: str, measurand: Measurand = Measurand.POSITIVE
     ) -> DataFrame[TimeSeriesSchema]:
         return self._get_data(market_location_number, measurand)
 
-    def _get_data(self, market_location_number: str, measurand: str) -> DataFrame[TimeSeriesSchema]:
+    def _get_data(self, market_location_number: str, measurand: Measurand) -> DataFrame[TimeSeriesSchema]:
         raise NotImplementedError()
 
 
 class APILoadDataRetriever(AbstractLoadDataRetriever):
     @pandera.check_types
-    def get_data(self, market_location_number: str, measurand: str = "positive") -> DataFrame[TimeSeriesSchema]:
+    def get_data(self, market_location_number: str, measurand: Measurand = Measurand.POSITIVE) -> DataFrame[TimeSeriesSchema]:
         return self._get_data(market_location_number, measurand)
 
-    def _get_data(self, market_location_number: str, measurand: str) -> DataFrame[TimeSeriesSchema]:
+    def _get_data(self, market_location_number: str, measurand: Measurand) -> DataFrame[TimeSeriesSchema]:
         raise NotImplementedError()
 
 
@@ -78,7 +78,7 @@ class EnercastSftpDataRetriever(AbstractLoadDataRetriever):
         return df
 
     def _get_data(
-        self, market_location_number: str, measurand: str = "positive"
+        self, market_location_number: str, measurand: Measurand = Measurand.NEGATIVE
     ) -> DataFrame[TimeSeriesSchema]:
         try:
             self._open_ftp()
@@ -121,8 +121,9 @@ class EnercastSftpDataRetriever(AbstractLoadDataRetriever):
     @staticmethod
     def _compare_file_names(file_name_1, file_name_2):
         """
-        compares the filenames by the timestamp in the filename
-        file name convention is <asset_name>_<timestamp>.csv
+        compares the file names by the timestamp in the file name
+        naming convention is <asset_name>_<timestamp>.csv
+        timestamp is formatted as: %Y-%m-%d-%H-%M-%S
         """
         pattern = re.compile(".*_(?P<timestamp>(\d{4})(-\d{2})(-\d{2})(-\d{2})-(\d{2})-(\d{2})).csv")
         format = "%Y-%m-%d-%H-%M-%S"
@@ -142,7 +143,7 @@ class EnercastApiDataRetriever(AbstractLoadDataRetriever):
         self.host: str = ""
 
     def _get_data(
-        self, market_location_number: str, measurand: str = "positive"
+        self, market_location_number: str, measurand: Measurand = Measurand.NEGATIVE
     ) -> pd.DataFrame:
         raise NotImplementedError
 
@@ -153,7 +154,7 @@ class IetSftpGenerationDataRetriever(AbstractLoadDataRetriever, SftpMixin):
         self.password: str = settings.iet_sftp_pass
         self.host: str = settings.iet_sftp_host
 
-    def _get_data(self, market_location_number: str, measurand: str) -> DataFrame[TimeSeriesSchema]:
+    def _get_data(self, market_location_number: str, measurand: Measurand) -> DataFrame[TimeSeriesSchema]:
         raise NotImplementedError()
         # try:
         #     self._open_ftp()
@@ -176,13 +177,13 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
         django.setup()
 
     def _get_data(
-        self, market_location_number: str, measurand: str = "positive"
+        self, market_location_number: str, measurand: Measurand = Measurand.POSITIVE
     ) -> DataFrame[TimeSeriesSchema]:
         start_date = dt.datetime.now(tz=TIMEZONE_BERLIN) - dt.timedelta(days=14)
         malo = self._get_market_location(market_location_number, start_date, measurand)
 
         energy_data: pd.Series = malo.get_load_profile(
-            start=start_date, measurand=measurand  # Measurand.POSITIVE
+            start=start_date, measurand=measurand.value
         )
         energy_data = energy_data.tz_convert(TIMEZONE_BERLIN)
         energy_data.name = "value"
@@ -190,7 +191,7 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
         return energy_data.to_frame()
 
     def _get_market_location(
-        self, market_location_number: str, start_date: dt.datetime, measurand: str
+        self, market_location_number: str, start_date: dt.datetime, measurand: Measurand
     ):
         from optinode.webserver.configurator.models import MeteringOrMarketLocation
 
@@ -209,14 +210,14 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
 
     @staticmethod
     def _all_locations_have_equal_energy_data(
-        locations: Collection, start_date: dt.datetime, measurand: str
+        locations: Collection, start_date: dt.datetime, measurand: Measurand
     ) -> bool:
         if len(locations) == 1:
             return True
         energy_data = [
             loc.get_load_profile(
                 start=start_date, measurand=measurand
-            )  # Measurand.POSITIVE)
+            )
             for loc in locations
         ]
         return all([energy_data[0].equals(ed) for ed in energy_data[1:]])

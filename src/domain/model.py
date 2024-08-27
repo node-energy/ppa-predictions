@@ -4,9 +4,10 @@ import abc
 import uuid
 import pandas as pd
 from datetime import datetime, date
-from enum import Enum
 from typing import Optional
 from dataclasses import dataclass, field
+
+from src.enums import Measurand, DataRetriever, PredictionType, State
 
 
 @dataclass
@@ -42,25 +43,6 @@ class AggregateRoot(Entity):
         cls.__hash__ = AggregateRoot.__hash__
 
 
-class State(str, Enum):
-    baden_wurttemberg = "BW"
-    bayern = "BY"
-    berlin = "BE"
-    brandenburg = "BB"
-    bremen = "HB"
-    hamburg = "HH"
-    hessen = "HE"
-    mecklenburg_vorpommern = "MV"
-    niedersachsen = "NI"
-    nordrhein_westfalen = "NW"
-    rheinland_pfalz = "RP"
-    saarland = "SL"
-    sachsen = "SN"
-    sachsen_anhalt = "ST"
-    schleswig_holstein = "SH"
-    thuringen = "TH"
-
-
 @dataclass(kw_only=True)
 class Location(AggregateRoot):
     __hash__ = AggregateRoot.__hash__
@@ -68,8 +50,8 @@ class Location(AggregateRoot):
     state: State
     alias: Optional[str] = None
     producers: list[Producer] = field(default_factory=list)
-    residual_long: Optional[Producer] = None
-    residual_short: Consumer
+    residual_long: Optional[MarketLocation] = None
+    residual_short: MarketLocation
     predictions: list[Prediction] = field(default_factory=list)
 
     @property
@@ -90,11 +72,11 @@ class Location(AggregateRoot):
         else:
             if not self.residual_long:
                 return (
-                    self.producers[0].historic_load_data.df
+                    self.producers[0].market_location.historic_load_data.df
                     + self.residual_short.historic_load_data.df
                 )
         return (
-            self.producers[0].historic_load_data.df
+            self.producers[0].market_location.historic_load_data.df
             - self.residual_long.historic_load_data.df
             + self.residual_short.historic_load_data.df
         )  # TODO currently we only allow one producer per location
@@ -102,7 +84,9 @@ class Location(AggregateRoot):
     def calculate_location_residual_loads(self):
         # todo cut prognosis df, so that it starts at prognosis horizon (next day)
         total_consumption_df = self.get_most_recent_prediction(PredictionType.CONSUMPTION).df
-        total_production_df = self.get_most_recent_prediction(PredictionType.PRODUCTION).df
+        total_production = self.get_most_recent_prediction(PredictionType.PRODUCTION)
+        if total_production:
+            total_production_df = total_production.df
 
         def clip_to_time_range(df: pd.DataFrame) -> pd.DataFrame:
             return df[
@@ -160,30 +144,17 @@ class Location(AggregateRoot):
         ]
 
 
-class DataRetriever(str, Enum):
-    # prognosis data retrievers
-    ENERCAST_SFTP = "enercast_sftp"
-    ENERCAST_API = "enercast_api"
-    IMPULS_ENERGY_TRADING_SFTP = "impuls_energy_trading_sftp"
-
-
-# class MeteringDirection(str, Enum):
-#     FEEDIN = "feedin"
-#     FEEDOUT = "feedout"
-#
-#
-# @dataclass(kw_only=True)
-# class MarketLocation(Entity):
-#     number: str
-#     metering_direction: MeteringDirection
-#     historic_load_data: Optional[HistoricLoadData] = None
+@dataclass(kw_only=True)
+class MarketLocation(Entity):
+    number: str
+    measurand: Measurand
+    historic_load_data: Optional[HistoricLoadData] = None
 
 
 @dataclass(kw_only=True)
 class Component(abc.ABC):
-    malo: str
+    market_location: MarketLocation
     name: Optional[str] = None
-    historic_load_data: Optional[HistoricLoadData] = None
 
 
 @dataclass(kw_only=True)
@@ -209,13 +180,6 @@ class HistoricLoadData(Entity):
 
     def __gt__(self, other: HistoricLoadData):
         return self.updated > other.updated
-
-
-class PredictionType(str, Enum):
-    CONSUMPTION = "consumption"
-    PRODUCTION = "production"
-    RESIDUAL_SHORT = "short"
-    RESIDUAL_LONG = "long"
 
 
 @dataclass(kw_only=True)

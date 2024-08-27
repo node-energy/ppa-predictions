@@ -20,7 +20,7 @@ class EmailDataStore(AbstractDataStore):
 
 class LocalDataStore(AbstractDataStore):
     def save_file(self, prediction: Prediction, *args, **kwargs):
-        malo = kwargs.get("malo")
+        malo = kwargs.get("market_location")
         buffer = io.BytesIO()
         prediction.df.to_csv(
             buffer,

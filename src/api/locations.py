@@ -8,21 +8,22 @@ from pydantic import BaseModel, TypeAdapter
 from .common import get_bus, BasePagination
 from src.infrastructure.message_bus import MessageBus
 from src.domain import commands
-from src.domain.model import Location as DLocation, State, DataRetriever
+from src.domain.model import Location as DLocation
+from src.enums import DataRetriever, State
 
 router = APIRouter(prefix="/locations")
 
 
 class ResidualShort(BaseModel):
-    malo: str
+    number: str
 
 
 class ResidualLong(BaseModel):
-    malo: str
+    number: str
 
 
 class Producer(BaseModel):
-    malo: str
+    market_location: ResidualLong
     prognosis_data_retriever: DataRetriever
 
 
@@ -46,11 +47,11 @@ class Location(BaseModel):
             state=location.state,
             alias=location.alias,
             id=str(location.id),
-            residual_short=ResidualShort(malo=location.residual_short.malo),
-            residual_long=ResidualLong(malo=location.residual_long.malo) if location.residual_long else None,
+            residual_short=ResidualShort(number=location.residual_short.number),
+            residual_long=ResidualLong(number=location.residual_long.number) if location.residual_long else None,
             producers=[
                 Producer(
-                    malo=p.malo,
+                    market_location=ResidualLong(number=p.market_location.number),
                     prognosis_data_retriever=DataRetriever(p.prognosis_data_retriever)
                 ) for p in location.producers
             ],
@@ -93,15 +94,15 @@ def get_location(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str)
 @router.post("/")
 def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Location):
     state = State(fa_location.state)  # TODO primitives?
-    residual_short = ResidualShort(malo=fa_location.residual_short.malo)
-    residual_long = ResidualLong(malo=fa_location.residual_long.malo) if fa_location.residual_long else None
+    residual_short = ResidualShort(number=fa_location.residual_short.number).number
+    residual_long = ResidualLong(number=fa_location.residual_long.number).number if fa_location.residual_long else None
     location: DLocation = bus.handle(
         commands.CreateLocation(
             state=state,
             alias=fa_location.alias,
-            residual_short_malo=residual_short.malo,
-            residual_long_malo=residual_long.malo,
-            producers=[{"malo": producer.malo, "prognosis_data_retriever": producer.prognosis_data_retriever} for producer in fa_location.producers],   # TODO other datatype e.g. namedtuple possible here?
+            residual_short_malo=residual_short,
+            residual_long_malo=residual_long,
+            producers=[{"market_location_number": producer.market_location.number, "prognosis_data_retriever": producer.prognosis_data_retriever} for producer in fa_location.producers],   # TODO other datatype e.g. namedtuple possible here?
             settings_active_from=fa_location.settings.active_from,
             settings_active_until=fa_location.settings.active_until
             if fa_location.settings.active_until
@@ -134,7 +135,7 @@ def update_location_settings(
                 id=str(new_location.id),
                 state=new_location.state,
                 alias=new_location.alias,
-                residual_short=ResidualShort(malo=new_location.residual_short.malo),
+                residual_short=ResidualShort(number=new_location.residual_short.number),
                 settings=LocationSettings(
                     active_from=new_location.settings.active_from,
                     active_until=new_location.settings.active_until,
@@ -147,6 +148,9 @@ def update_location_settings(
 def update_location_historic_data(
     bus: Annotated[MessageBus, Depends(get_bus)], location_id: str
 ):
+    with bus.uow as uow:
+        if not uow.locations.get(uuid.UUID(location_id)):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     bus.handle(commands.UpdateHistoricData(location_id=location_id))
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
@@ -155,12 +159,18 @@ def update_location_historic_data(
 def calculate_location_predictions(
     bus: Annotated[MessageBus, Depends(get_bus)], location_id: str
 ):
+    with bus.uow as uow:
+        if not uow.locations.get(uuid.UUID(location_id)):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     bus.handle(commands.CalculatePredictions(location_id=location_id))
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
 
 @router.post("/{location_id}/send_predictions")
 def send_predictions(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str):
+    with bus.uow as uow:
+        if not uow.locations.get(uuid.UUID(location_id)):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     bus.handle(commands.SendPredictions(location_id=location_id))
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
@@ -174,19 +184,20 @@ def list_location_predictions(
     prediction_response_body = []
     with bus.uow as uow:
         location: DLocation = uow.locations.get(id=uuid.UUID(location_id))
-        if location:
-            for prediction in location.predictions:
-                if not type or (type and prediction.type == type):
-                    prediction_response_body.append(
-                        {
-                            "type": prediction.type,
-                            "df": json.loads(
-                                prediction.df.to_json(
-                                    orient="index", date_format="iso", date_unit="s"
-                                )
-                            ),
-                        }
-                    )
+        if not location:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        for prediction in location.predictions:
+            if not type or (type and prediction.type == type):
+                prediction_response_body.append(
+                    {
+                        "type": prediction.type,
+                        "df": json.loads(
+                            prediction.df.to_json(
+                                orient="index", date_format="iso", date_unit="s"
+                            )
+                        ),
+                    }
+                )
     return JSONResponse(prediction_response_body)
 
 

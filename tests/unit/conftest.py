@@ -7,7 +7,10 @@ import pandas as pd
 import random
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.orm import sessionmaker
+
+from src import enums
 from src.domain import model
+from src.domain.model import MarketLocation
 
 
 @pytest.fixture
@@ -43,14 +46,14 @@ def historic_load_profile(component):
 def location():
     return model.Location(
         settings=model.LocationSettings(
-            active_from=dt.datetime(2024, 1, 1, 0, 0),
+            active_from=dt.date(2024, 1, 1),
             active_until=None,
         ),
-        state=model.State.berlin,
-        residual_short=model.Consumer(malo=random_malo())
+        state=enums.State.berlin,
+        residual_short=model.MarketLocation(number=random_malo(), measurand=enums.Measurand.POSITIVE)
     )
 
 
 @pytest.fixture
 def producer():
-    return model.Producer(malo=random_malo())
+    return model.Producer(market_location=MarketLocation(number=random_malo(), measurand=enums.Measurand.NEGATIVE), prognosis_data_retriever=enums.DataRetriever.ENERCAST_SFTP)

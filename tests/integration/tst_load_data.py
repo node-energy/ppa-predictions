@@ -5,18 +5,20 @@ import pytest
 
 from src.services.load_data import OptinodeDataRetriever
 from src.utils.exceptions import ConflictingEnergyData, NoMeteringOrMarketLocationFound
+from src.utils.timezone import TIMEZONE_BERLIN
 
 
 class TestOptinodeDataRetriever:
     def test_load_data(self):
         series = pd.Series(
-            {
-                "2021-01-01T00:00:00Z": 1,
-                "2021-01-01T00:15:00Z": 2,
-                "2021-01-01T00:30:00Z": 3,
-                "2021-01-01T00:45:00Z": 4,
-                "2021-01-01T01:00:00Z": 5,
-            }
+            index=pd.DatetimeIndex(
+                data=pd.date_range(
+                    start="2021-01-01T00:00:00", periods=5, freq="15min", tz=TIMEZONE_BERLIN
+                ),
+                name="datetime"
+            ),
+            data=[1, 2, 3, 4, 5],
+            name="value",
         )
 
         data_retriever = OptinodeDataRetriever()
@@ -33,7 +35,7 @@ class TestOptinodeDataRetriever:
             mock_filter.exists.return_value = True
 
             data = data_retriever.get_data(market_location_number="12345")
-        pd.testing.assert_series_equal(data, series, check_names=False)
+        pd.testing.assert_frame_equal(data, series.to_frame())
 
     def test_load_data_conflicting_data(self):
         data_retriever = OptinodeDataRetriever()
