@@ -281,7 +281,7 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
 
         locations = MeteringOrMarketLocation.objects.filter(
             number=market_location_number,
-             site__is_ppaaas=True
+            site__is_ppaaas=True
         )
         if not locations.exists():
             raise NoMeteringOrMarketLocationFound(market_location_number)
