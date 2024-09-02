@@ -23,6 +23,7 @@ class ResidualLong(BaseModel):
 
 
 class Producer(BaseModel):
+    id: Optional[uuid.UUID] = None
     market_location: ResidualLong
     prognosis_data_retriever: DataRetriever
 
@@ -51,6 +52,7 @@ class Location(BaseModel):
             residual_long=ResidualLong(number=location.residual_long.number) if location.residual_long else None,
             producers=[
                 Producer(
+                    id=p.id,
                     market_location=ResidualLong(number=p.market_location.number),
                     prognosis_data_retriever=DataRetriever(p.prognosis_data_retriever)
                 ) for p in location.producers
@@ -60,7 +62,7 @@ class Location(BaseModel):
                 active_until=location.settings.active_until
                 if location.settings.active_until
                 else None,
-        ),
+            ),
         )
 
 
@@ -102,7 +104,11 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
             alias=fa_location.alias,
             residual_short_malo=residual_short,
             residual_long_malo=residual_long,
-            producers=[{"market_location_number": producer.market_location.number, "prognosis_data_retriever": producer.prognosis_data_retriever} for producer in fa_location.producers],   # TODO other datatype e.g. namedtuple possible here?
+            producers=[{
+                "id": producer.id,
+                "market_location_number": producer.market_location.number,
+                "prognosis_data_retriever": producer.prognosis_data_retriever
+            } for producer in fa_location.producers],   # TODO other datatype e.g. namedtuple possible here?
             settings_active_from=fa_location.settings.active_from,
             settings_active_until=fa_location.settings.active_until
             if fa_location.settings.active_until

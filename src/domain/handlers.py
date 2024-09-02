@@ -11,7 +11,9 @@ from src.domain import model
 from src.domain.model import MarketLocation
 from src.infrastructure import unit_of_work
 from src.services import predictor, load_data, data_store
+from src.services.load_data import DATA_RETRIEVER_MAP
 from src.utils.timezone import TIMEZONE_BERLIN
+from src.enums import Measurand
 
 logger = logging.getLogger(__name__)
 
@@ -131,14 +133,17 @@ def calculate_predictions(
                 )
             )
 
-            # Erzeuerungsprognose Enercast
+            # Erzeugungsprognose
             if location.has_production:
-                enercast_data_retriever = load_data.EnercastSftpDataRetriever()
+                data_retriever_config = DATA_RETRIEVER_MAP[location.producers[0].prognosis_data_retriever]
+                data_retriever = data_retriever_config.data_retriever()
                 for producer in location.producers:
+                    asset_identifier = data_retriever_config.asset_identifier_func(producer)
                     location.add_prediction(
                         model.Prediction(
-                            df=enercast_data_retriever.get_data(
-                                market_location_number=producer.market_location.number
+                            df=data_retriever.get_data(
+                                asset_identifier=asset_identifier,
+                                measurand=Measurand.NEGATIVE
                             ),
                             type=src.enums.PredictionType.PRODUCTION
                         )
@@ -191,6 +196,7 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
                 measurand=src.enums.Measurand.NEGATIVE,
             ) if cmd.residual_long_malo else None,
             producers=[model.Producer(
+                id=p["id"],
                 market_location=model.MarketLocation(
                     number=p["market_location_number"],
                     measurand=src.enums.Measurand.NEGATIVE,

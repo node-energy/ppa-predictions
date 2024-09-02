@@ -22,7 +22,7 @@ def create_df_with_constant_values(value=42.0):
 
 
 class FakeLoadDataReceiver(AbstractLoadDataRetriever):
-    def get_data(self, market_location_number: str, measurand: enums.Measurand):
+    def get_data(self, asset_identifier: str, measurand: enums.Measurand):
         return create_df_with_constant_values()
 
 
@@ -74,7 +74,7 @@ class TestPrediction:
 
         assert len(location.predictions) == 2
 
-    def test_calculate_predictions_respsects_start_and_end_ranges(self):
+    def test_calculate_predictions_respects_start_and_end_ranges(self):
         today = dt.date.today()
         active_from = today + dt.timedelta(days=2)
         active_until = today + dt.timedelta(days=4)
