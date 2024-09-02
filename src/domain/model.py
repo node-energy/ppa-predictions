@@ -172,14 +172,14 @@ class Consumer(Component, Entity):
 @dataclass(kw_only=True)
 class HistoricLoadData(Entity):
     __hash__ = Entity.__hash__
-    updated: datetime = field(default_factory=datetime.now) # todo this probably does not work as expected, see Prediction
+    created: datetime = field(default_factory=datetime.now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
     df: pd.DataFrame
 
     def __eq__(self, other):
         return self.id == other.id
 
     def __gt__(self, other: HistoricLoadData):
-        return self.updated > other.updated
+        return self.created > other.created
 
 
 @dataclass(kw_only=True)

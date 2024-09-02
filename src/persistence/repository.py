@@ -167,7 +167,11 @@ class LocationRepository(
             if db_hld is None:
                 return None
             f = io.BytesIO(db_hld.dataframe)
-            return model.HistoricLoadData(id=db_hld.id, df=pd.read_pickle(f))
+            return model.HistoricLoadData(
+                id=db_hld.id,
+                created=db_hld.created_at,
+                df=pd.read_pickle(f)
+            )
 
         def market_location_to_domain(db_market_location: DBMarketLocation) -> model.MarketLocation | None:
             if db_market_location is None:
