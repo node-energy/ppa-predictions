@@ -6,7 +6,7 @@ import datetime as dt
 import re
 from dataclasses import dataclass
 from functools import cmp_to_key
-from typing import Collection, Callable, Type
+from typing import Collection, Callable, Type, Protocol
 
 import pandas as pd
 import pandera
@@ -16,7 +16,7 @@ from paramiko import SSHClient, SFTPClient, AutoAddPolicy
 from src.config import settings
 from src.domain.model import Producer
 from src.enums import Measurand, DataRetriever
-from src.utils.dataframe_schema import TimeSeriesSchema
+from src.utils.dataframe_schemas import TimeSeriesSchema, IetEigenverbrauchSchema
 from src.utils.exceptions import NoMeteringOrMarketLocationFound, ConflictingEnergyData
 from src.utils.timezone import TIMEZONE_BERLIN
 
@@ -42,8 +42,25 @@ class APILoadDataRetriever(AbstractLoadDataRetriever):
 
 
 class AbstractSftpClient(abc.ABC):
-    def get_relevant_files(self, asset_identifier: str) -> list[io.BytesIO]:
-        raise NotImplementedError
+    pass
+
+
+class SftpClient(Protocol):
+    def _open_sftp(self):
+        ...
+
+    def _close_sftp(self):
+        ...
+
+
+class SftpDownloadGenerationPrediction(SftpClient, Protocol):
+    def download_generation_prediction(self, asset_identifier: str) -> list[io.BytesIO]:
+        ...
+
+
+class SftpUploadEigenverbrauch(SftpClient, Protocol):
+    def upload_eigenverbrauch(self, file_obj: io.BytesIO):
+        ...
 
 
 class SftpMixin:
@@ -63,13 +80,13 @@ class SftpMixin:
         self._ssh.close()
 
 
-class EnercastSftpClient(AbstractSftpClient, SftpMixin):
+class EnercastSftpClient(SftpMixin):
     def __init__(self):
         self.username: str = settings.enercast_ftp_username
         self.password: str = settings.enercast_ftp_pass
         self.host: str = settings.enercast_ftp_host
 
-    def get_relevant_files(self, asset_identifier: str) -> list[io.BytesIO]:
+    def download_generation_prediction(self, asset_identifier: str) -> list[io.BytesIO]:
         try:
             self._open_sftp()
             self._sftp.chdir("/forecasts")
@@ -101,11 +118,11 @@ class EnercastSftpClient(AbstractSftpClient, SftpMixin):
 
 
 class EnercastSftpDataRetriever(AbstractLoadDataRetriever):
-    def __init__(self, sftp_client: AbstractSftpClient = EnercastSftpClient()):
+    def __init__(self, sftp_client: SftpDownloadGenerationPrediction = EnercastSftpClient()):
         self.sftp_client = sftp_client
 
     def _get_data(self, asset_identifier: str, measurand: Measurand) -> DataFrame[TimeSeriesSchema]:
-        files = self.sftp_client.get_relevant_files(asset_identifier)
+        files = self.sftp_client.download_generation_prediction(asset_identifier)
         return self._squash_files_data(files)
 
     def _squash_files_data(self, files: list[io.BytesIO]) -> DataFrame[TimeSeriesSchema]:
@@ -157,18 +174,18 @@ class EnercastApiDataRetriever(AbstractLoadDataRetriever):
 
 def iet_file_name_match(file_name: str) -> re.Match:
     pattern = re.compile(
-        "(?P<creation_timestamp>20(?:\d{6})_(?:\d{4}))_erzeugungsprognose_(?P<asset_id>[0-9A-Fa-f\-]*)_(?P<prognosis_date>20(?:\d{6})).csv"
+        "(?P<creation_timestamp>20\d{6}_\d{4})_erzeugungsprognose_(?P<asset_id>[0-9A-Fa-f\-]*)_(?P<prognosis_date>20\d{6}).csv"
     )
     return re.fullmatch(pattern, file_name)
 
 
-class IetSftpClient(AbstractSftpClient, SftpMixin):
+class IetSftpClient(SftpMixin):
     def __init__(self):
         self.username: str = settings.iet_sftp_username
         self.password: str = settings.iet_sftp_pass
         self.host: str = settings.iet_sftp_host
 
-    def get_relevant_files(self, asset_identifier: str) -> list[io.BytesIO]:
+    def download_generation_prediction(self, asset_identifier: str) -> list[io.BytesIO]:
         try:
             self._open_sftp()
             self._sftp.chdir("/Erzeugungsprognose")
@@ -197,9 +214,20 @@ class IetSftpClient(AbstractSftpClient, SftpMixin):
             file_objs.append(file_obj)
         return file_objs
 
+    def upload_own_consumption_file(self, file_obj: io.BytesIO):
+        try:
+            self._open_sftp()
+            self._sftp.chdir("/Eigenverbrauch")
+            self._sftp.putfo(file_obj, file_obj.name)
+        except Exception as exc:
+            print(exc)
+        finally:
+            self._sftp.close()
+            self._ssh.close()
 
-class IetSftpGenerationDataRetriever(AbstractLoadDataRetriever, SftpMixin):
-    def __init__(self, sftp_client: AbstractSftpClient = IetSftpClient()):
+
+class IetSftpGenerationDataRetriever(AbstractLoadDataRetriever):
+    def __init__(self, sftp_client: SftpDownloadGenerationPrediction = IetSftpClient()):
         self.sftp_client = sftp_client
 
     def _get_data(
@@ -207,7 +235,7 @@ class IetSftpGenerationDataRetriever(AbstractLoadDataRetriever, SftpMixin):
         asset_identifier: str,
         measurand: Measurand,
     ) -> DataFrame[TimeSeriesSchema]:
-        files = self.sftp_client.get_relevant_files(asset_identifier)
+        files = self.sftp_client.download_generation_prediction(asset_identifier)
         return self._squash_files_data(files)
 
     def _squash_files_data(self, files: list[io.BytesIO]) -> DataFrame[TimeSeriesSchema]:
@@ -272,7 +300,7 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
         energy_data = energy_data.tz_convert(TIMEZONE_BERLIN)
         energy_data.name = "value"
         energy_data.index.name = "datetime"
-        return energy_data.to_frame()
+        return DataFrame[TimeSeriesSchema](energy_data.to_frame())
 
     def _get_market_location(
         self, market_location_number: str, start_date: dt.datetime, measurand: Measurand
@@ -327,3 +355,27 @@ DATA_RETRIEVER_MAP: dict[DataRetriever, DataRetrieverConfig] = {
         lambda producer: str(producer.id),
     )
 }
+
+
+class AbstractLoadDataSender(abc.ABC):
+    @abc.abstractmethod
+    def send_data(self, data: pd.DataFrame):
+        ...
+
+
+class IetSftpConsumptionDataSender(AbstractLoadDataSender):
+    def __init__(self, sftp_client: SftpUploadEigenverbrauch = IetSftpClient()):
+        self.sftp_client = sftp_client
+
+    def send_data(self, data: DataFrame[IetEigenverbrauchSchema]) -> None:
+        file_obj = self._to_csv(data)
+        return self.sftp_client.upload_eigenverbrauch(file_obj)
+
+    def _to_csv(self, df: DataFrame[IetEigenverbrauchSchema]) -> io.BytesIO:
+        file_obj = io.BytesIO()
+        file_obj.name = f"{datetime.date.today().strftime('%Y%m%d')}_eigenverbrauch_anlagen{'--'}.csv"  # TODO which dates to put in file name?
+        df.reset_index(inplace=True)
+        df["#timestamp"] = df["#timestamp"].dt.strftime('%d.%m.%Y %H:%M:%S')
+        df.to_csv(file_obj, sep=";", decimal=",", index=False)
+        file_obj.seek(0)
+        return file_obj
