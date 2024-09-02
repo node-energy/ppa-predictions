@@ -44,11 +44,21 @@ class TestLocation:
             "state": State.berlin.value,
             "alias": "New Location",
             "residual_short": {"number": "market_location-1"},
+            "residual_long": {"number": "market_location-2"},
+            "producers": [
+                {
+                    "market_location": {
+                        "number": "market_location-3"
+                    },
+                    "prognosis_data_retriever": "impuls_energy_trading_sftp"
+                }
+            ],
             "settings": {"active_from": "2024-01-01", "active_until": None},
         }
 
         response = client.post("/locations/", json=json)
         assert response.status_code == 200
+        json["producers"][0].update({"id": response.json()["producers"][0]["id"]})
         assert json.items() <= response.json().items()
 
     def test_update_location_settings(self, bus, setup_database):

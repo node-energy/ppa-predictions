@@ -184,6 +184,26 @@ def send_predictions(
 
 def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfWork):
     with uow:
+        producers = []
+        for p in cmd.producers:
+            if p["id"] is not None:
+                producers.append(model.Producer(
+                    id=p["id"],
+                    market_location=model.MarketLocation(
+                        number=p["market_location_number"],
+                        measurand=src.enums.Measurand.NEGATIVE,
+                    ),
+                    prognosis_data_retriever=p["prognosis_data_retriever"]
+                ))
+            else:
+                producers.append(model.Producer(
+                    market_location=model.MarketLocation(
+                        number=p["market_location_number"],
+                        measurand=src.enums.Measurand.NEGATIVE,
+                    ),
+                    prognosis_data_retriever=p["prognosis_data_retriever"]
+                ))
+
         location = model.Location(
             state=cmd.state,
             alias=cmd.alias,
@@ -195,14 +215,7 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
                 number=cmd.residual_long_malo,
                 measurand=src.enums.Measurand.NEGATIVE,
             ) if cmd.residual_long_malo else None,
-            producers=[model.Producer(
-                id=p["id"],
-                market_location=model.MarketLocation(
-                    number=p["market_location_number"],
-                    measurand=src.enums.Measurand.NEGATIVE,
-                ),
-                prognosis_data_retriever=p["prognosis_data_retriever"]
-            ) for p in cmd.producers],
+            producers=producers,
             settings=model.LocationSettings(
                 active_from=cmd.settings_active_from,
                 active_until=cmd.settings_active_until,
