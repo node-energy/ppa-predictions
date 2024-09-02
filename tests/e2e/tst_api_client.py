@@ -9,7 +9,7 @@ from src.enums import State
 from src.main import app
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
-from src.services.load_data import APILoadDataRetriever
+from src.services.load_data_exchange.common import APILoadDataRetriever
 from src.services.data_store import LocalDataStore
 
 
@@ -91,3 +91,7 @@ class TestLocation:
         response = client.get(f"/locations/{location_id}/")
         assert response.status_code == 200
         assert json.items() <= response.json().items()
+
+    def test_calculate_predictions(self, bus, setup_database):
+        ...
+        # todo

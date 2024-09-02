@@ -1,11 +1,12 @@
 from __future__ import annotations
 import inspect
 from typing import Union
+
+import src.services.load_data_exchange.common
 from src.domain import events, commands
 from src.infrastructure import unit_of_work
 from src.domain.handlers import COMMAND_HANDLERS, EVENT_HANDLERS
-from src.services import load_data, data_store
-
+from src.services import data_store
 
 Message = Union[commands.Command, events.Event]
 
@@ -29,7 +30,7 @@ class MessageBus:
     def setup(
         self,
         uow: unit_of_work.AbstractUnitOfWork,
-        ldr: load_data.AbstractLoadDataRetriever,
+        ldr: src.services.load_data_exchange.common.AbstractLoadDataRetriever,
         dst: data_store.AbstractDataStore,
     ):
         self.uow = uow

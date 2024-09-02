@@ -5,13 +5,14 @@ import datetime
 from uuid import UUID
 
 import src.enums
+import src.services.load_data_exchange.common
 from src.config import settings
 from src.domain import commands, events
 from src.domain import model
 from src.domain.model import MarketLocation
 from src.infrastructure import unit_of_work
-from src.services import predictor, load_data, data_store
-from src.services.load_data import DATA_RETRIEVER_MAP
+from src.services import predictor, data_store
+from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP
 from src.utils.timezone import TIMEZONE_BERLIN
 from src.enums import Measurand
 
@@ -25,7 +26,7 @@ class InvalidId(Exception):
 def update_and_predict_all(
     _: commands.UpdatePredictAll,
     uow: unit_of_work.AbstractUnitOfWork,
-    ldr: load_data.AbstractLoadDataRetriever,
+    ldr: src.services.load_data_exchange.common.AbstractLoadDataRetriever,
     dst: data_store.AbstractDataStore,
 ):
     with uow:
@@ -44,7 +45,7 @@ def update_and_predict_all(
 def update_historic_data(
     cmd: commands.UpdateHistoricData,
     uow: unit_of_work.AbstractUnitOfWork,
-    ldr: load_data.AbstractLoadDataRetriever,
+    ldr: src.services.load_data_exchange.common.AbstractLoadDataRetriever,
 ):
     with uow:
 

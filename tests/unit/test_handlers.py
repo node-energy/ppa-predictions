@@ -4,7 +4,7 @@ import pandas as pd
 from src import enums
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import MemoryUnitOfWork
-from src.services.load_data import AbstractLoadDataRetriever
+from src.services.load_data_exchange.common import AbstractLoadDataRetriever
 from src.services.data_store import LocalDataStore
 from src.domain import commands
 from src.domain import model
