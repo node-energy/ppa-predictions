@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from dataclasses import dataclass
 from typing import Literal, Optional
 from src.domain.model import State
@@ -33,8 +33,10 @@ class CreateLocation(Command):
     state: State
     alias: Optional[str]
     residual_short_malo: str
-    settings_active_from: datetime
-    settings_active_until: Optional[datetime]
+    residual_long_malo: Optional[str]
+    producer_malos: Optional[list[str]]
+    settings_active_from: date
+    settings_active_until: Optional[date]
 
 
 @dataclass

@@ -1,8 +1,8 @@
 from __future__ import annotations
 from uuid import UUID
-from datetime import datetime, timezone
+from datetime import datetime, date, timezone
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
-from sqlalchemy import DateTime, ForeignKey, PickleType, UniqueConstraint
+from sqlalchemy import DateTime, Date, ForeignKey, PickleType, UniqueConstraint
 from typing import Optional
 
 
@@ -105,5 +105,5 @@ class LocationSettings(Base):
         back_populates="settings",
         foreign_keys=[location_id],
     )
-    active_from: Mapped[datetime] = mapped_column(DateTime)
-    active_until: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    active_from: Mapped[date] = mapped_column(Date)
+    active_until: Mapped[Optional[date]] = mapped_column(Date)

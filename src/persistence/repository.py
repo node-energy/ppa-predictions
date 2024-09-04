@@ -189,7 +189,10 @@ class LocationRepository(
                 return None
             f = io.BytesIO(db_prediction.dataframe)
             return model.Prediction(
-                id=db_prediction.id, type=db_prediction.type, df=pd.read_pickle(f)
+                id=db_prediction.id,
+                created=db_prediction.created_at,
+                type=db_prediction.type,
+                df=pd.read_pickle(f)
             )
 
         state = model.State(db_obj.state)

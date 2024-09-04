@@ -1,24 +1,132 @@
 import abc
+import datetime
+import io
 import os
 import datetime as dt
+import re
+from functools import cmp_to_key
 from typing import Collection
 
 import pandas as pd
+import pandera
+from pandera.typing import DataFrame
+from paramiko import SSHClient, SFTPClient, AutoAddPolicy
+
 from src.config import settings
+from src.utils.dataframe_schema import TimeSeriesSchema
 from src.utils.exceptions import NoMeteringOrMarketLocationFound, ConflictingEnergyData
 from src.utils.timezone import TIMEZONE_BERLIN
 
-from optinode.webserver.configurator.enums import Measurand
-
 
 class AbstractLoadDataRetriever(abc.ABC):
-    def get_data(self, market_location_number: str) -> pd.DataFrame:
+    @pandera.check_types
+    def get_data(
+        self, market_location_number: str, measurand: str = "positive"
+    ) -> DataFrame[TimeSeriesSchema]:
+        return self._get_data(market_location_number, measurand)
+
+    def _get_data(self, market_location_number: str, measurand: str) -> DataFrame[TimeSeriesSchema]:
         raise NotImplementedError()
 
 
 class APILoadDataRetriever(AbstractLoadDataRetriever):
-    def get_data(self, market_location_number: str):
-        pass
+    @pandera.check_types
+    def get_data(self, market_location_number: str, measurand: str = "positive") -> DataFrame[TimeSeriesSchema]:
+        return self._get_data(market_location_number, measurand)
+
+    def _get_data(self, market_location_number: str, measurand: str) -> DataFrame[TimeSeriesSchema]:
+        raise NotImplementedError()
+
+
+class EnercastFtpDataRetriever(AbstractLoadDataRetriever):
+    def __init__(self):
+        self.username: str = settings.enercast_ftp_username
+        self.password: str = settings.enercast_ftp_pass
+        self.host: str = settings.enercast_ftp_host
+
+    def _open_ftp(self):
+        self._ssh = SSHClient()
+        self._ssh.set_missing_host_key_policy(AutoAddPolicy())  # todo: change to RejectPolicy
+        self._ssh.connect(
+            hostname=self.host,
+            username=self.username,
+            password=self.password,
+            timeout=60,
+        )
+        self._sftp: SFTPClient = self._ssh.open_sftp()
+
+    def _csv_to_dataframe(self, file_obj):
+        df = pd.read_csv(file_obj, sep=";", decimal=",", index_col=None, header=0)
+        return df
+
+    def _get_data(
+        self, market_location_number: str, measurand: str = "positive"
+    ) -> DataFrame[TimeSeriesSchema]:
+        try:
+            self._open_ftp()
+            self._sftp.chdir("/forecasts")
+            file_names: list[str] = []
+            for file_name in self._sftp.listdir():
+                if file_name.endswith(".csv") and file_name.startswith(
+                    market_location_number
+                ):
+                    file_names.append(file_name)
+
+            file_names = sorted(file_names, key=cmp_to_key(self._compare_file_names), reverse=True)
+            dfs = []
+            # todo this is pretty slow, we could think about only downloading files where the timestamp in the file name
+            # indicates that it contains data for the relevant time period
+            for file_name in file_names:
+                file_obj = io.BytesIO()
+                self._sftp.getfo(file_name, file_obj)
+                file_obj.seek(0)
+                dfs.append(self._csv_to_dataframe(file_obj))
+            df = pd.concat(dfs, axis=0, ignore_index=True)
+            df.rename(
+                columns={"Timestamp (Europe/Berlin)": "datetime", df.columns[1]: "value"},
+                inplace=True,
+            )
+            df.set_index("datetime", inplace=True)
+            df.index = pd.to_datetime(df.index)
+            df = df.tz_localize(TIMEZONE_BERLIN)
+            df = df[~df.index.duplicated(keep='first')]
+            df = df.sort_index()
+            return df
+
+        except Exception as exc:
+            print(exc)
+
+        finally:
+            self._sftp.close()
+            self._ssh.close()
+
+    @staticmethod
+    def _compare_file_names(file_name_1, file_name_2):
+        """
+        compares the filenames by the timestamp in the filename
+        file name convention is <asset_name>_<timestamp>.csv
+        """
+        pattern = re.compile(".*_(?P<timestamp>(\d{4})(-\d{2})(-\d{2})(-\d{2})-(\d{2})-(\d{2})).csv")
+        format = "%Y-%m-%d-%H-%M-%S"
+        timestamp_1 = re.fullmatch(pattern, file_name_1)["timestamp"]
+        timestamp_1 = datetime.datetime.strptime(timestamp_1, format)
+        timestamp_2 = re.fullmatch(pattern, file_name_2)["timestamp"]
+        timestamp_2 = datetime.datetime.strptime(timestamp_2, format)
+        if timestamp_1 < timestamp_2:
+            return -1
+        if timestamp_1 > timestamp_2:
+            return 1
+        return 0
+
+
+class EnercastApiDataRetriever(AbstractLoadDataRetriever):
+    def __init__(self):
+        self.host: str = ""
+
+    def _get_data(
+        self, market_location_number: str, measurand: str = "positive"
+    ) -> pd.DataFrame:
+        raise NotImplementedError
 
 
 class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
@@ -32,41 +140,48 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
 
         django.setup()
 
-    def get_data(self, market_location_number: str) -> pd.DataFrame:
+    def _get_data(
+        self, market_location_number: str, measurand: str = "positive"
+    ) -> DataFrame[TimeSeriesSchema]:
         start_date = dt.datetime.now(tz=TIMEZONE_BERLIN) - dt.timedelta(days=14)
-        malo = self._get_market_location(market_location_number, start_date)
+        malo = self._get_market_location(market_location_number, start_date, measurand)
 
         energy_data: pd.Series = malo.get_load_profile(
-            start=start_date, measurand=Measurand.POSITIVE
+            start=start_date, measurand=measurand  # Measurand.POSITIVE
         )
+        energy_data = energy_data.tz_convert(TIMEZONE_BERLIN)
         energy_data.name = "value"
         energy_data.index.name = "datetime"
         return energy_data.to_frame()
 
     def _get_market_location(
-        self, market_location_number: str, start_date: dt.datetime
+        self, market_location_number: str, start_date: dt.datetime, measurand: str
     ):
         from optinode.webserver.configurator.models import MeteringOrMarketLocation
 
         locations = MeteringOrMarketLocation.objects.filter(
             number=market_location_number,
-            # site__is_ppaaas=True
+             site__is_ppaaas=True
         )
         if not locations.exists():
             raise NoMeteringOrMarketLocationFound(market_location_number)
 
-        if not self._all_locations_have_equal_energy_data(locations, start_date):
+        if not self._all_locations_have_equal_energy_data(
+            locations, start_date, measurand
+        ):
             raise ConflictingEnergyData(market_location_number)
         return locations[0]
 
     @staticmethod
     def _all_locations_have_equal_energy_data(
-        locations: Collection, start_date: dt.datetime
+        locations: Collection, start_date: dt.datetime, measurand: str
     ) -> bool:
         if len(locations) == 1:
             return True
         energy_data = [
-            loc.get_load_profile(start=start_date, measurand=Measurand.POSITIVE)
+            loc.get_load_profile(
+                start=start_date, measurand=measurand
+            )  # Measurand.POSITIVE)
             for loc in locations
         ]
         return all([energy_data[0].equals(ed) for ed in energy_data[1:]])

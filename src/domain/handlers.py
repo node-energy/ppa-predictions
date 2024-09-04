@@ -8,12 +8,12 @@ from src.domain import commands, events
 from src.domain import model
 from src.infrastructure import unit_of_work
 from src.services import predictor, load_data, data_store
-
+from src.utils.timezone import TIMEZONE_BERLIN
 
 logger = logging.getLogger(__name__)
 
 
-class InvalidRef(Exception):
+class InvalidId(Exception):
     pass
 
 
@@ -43,10 +43,10 @@ def update_historic_data(
 ):
     with uow:
 
-        def get_historic_load_data(malo: str):
+        def get_historic_load_data(malo: str, measurand: str = "positive"):
             result = None
             try:
-                df = ldr.get_data(malo)
+                df = ldr.get_data(malo, measurand)
                 result = model.HistoricLoadData(df=df)
             except Exception as exc:
                 logger.error("Could not get historic data for malo %s", malo)
@@ -59,11 +59,11 @@ def update_historic_data(
             location.residual_short.historic_load_data = hld
 
         if location.has_production:
-            if (hld := get_historic_load_data(location.residual_long.malo)) is not None:
+            if (hld := get_historic_load_data(location.residual_long.malo, "negative")) is not None:
                 location.residual_long.historic_load_data = hld
 
         for producer in location.producers:
-            if (hld := get_historic_load_data(producer.malo)) is not None:
+            if (hld := get_historic_load_data(producer.malo, "negative")) is not None:
                 producer.historic_load_data = hld
 
         uow.locations.update(location)
@@ -82,10 +82,7 @@ def calculate_predictions(
         if local_consumption_df is None:
             return
 
-        start_date = datetime.datetime.combine(
-            datetime.date.today() + datetime.timedelta(days=1),
-            datetime.datetime.min.time(),
-        )
+        start_date = datetime.date.today() + datetime.timedelta(days=1)
         end_date = start_date + datetime.timedelta(days=7)
 
         if (
@@ -111,7 +108,10 @@ def calculate_predictions(
 
         predictor_setting = predictor.PredictorSettings(
             state=location.state,
-            output_period=predictor.Period(start=start_date, end=end_date),
+            output_period=predictor.Period(
+                start=datetime.datetime.combine(start_date, datetime.time.min, tzinfo=TIMEZONE_BERLIN),
+                end=datetime.datetime.combine(end_date, datetime.time.max, tzinfo=TIMEZONE_BERLIN)
+            ),
         )
         rf_predictor = predictor.RandomForestRegressionPredictor(
             input_df=local_consumption_df, settings=predictor_setting
@@ -130,7 +130,16 @@ def calculate_predictions(
 
             # Erzeuerungsprognose Enercast
             if location.has_production:
-                pass
+                enercast_data_retriever = load_data.EnercastFtpDataRetriever()
+                for producer in location.producers:
+                    location.add_prediction(
+                        model.Prediction(
+                            df=enercast_data_retriever.get_data(
+                                market_location_number=producer.malo
+                            ),
+                            type=model.PredictionType.PRODUCTION
+                        )
+                    )
 
             # Überschuss / Bezug
             location.calculate_location_residual_loads()
@@ -171,6 +180,8 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
             state=cmd.state,
             alias=cmd.alias,
             residual_short=model.Consumer(malo=cmd.residual_short_malo),
+            residual_long=model.Producer(malo=cmd.residual_long_malo) if cmd.residual_long_malo else None,
+            producers=[model.Producer(malo=malo) for malo in cmd.producer_malos],
             settings=model.LocationSettings(
                 active_from=cmd.settings_active_from,
                 active_until=cmd.settings_active_until,
@@ -196,13 +207,6 @@ def update_location_settings(
 
 
 EVENT_HANDLERS = {
-    # events.CustomerCreated: [test_handler],
-    # events.HistoricLoadProfileReceived: [create_prediction],
-    # events.Predict: [start_prediction],
-    # events.DataUpdateRequired: [update_data],
-    # events.DataUpdated: [create_prediction],
-    # events.PredictionRequired [create_prediction],
-    # events.PredictionCreated: [send_prediction],
     events.PredictionsCreated: [send_predictions_evt]
 }
 

@@ -18,9 +18,17 @@ class ResidualShort(BaseModel):
     malo: str
 
 
+class ResidualLong(BaseModel):
+    malo: str
+
+
+class Producer(BaseModel):
+    malo: str
+
+
 class LocationSettings(BaseModel):
-    active_from: dt.datetime
-    active_until: Optional[dt.datetime] = None
+    active_from: dt.date
+    active_until: Optional[dt.date] = None
 
 
 class Location(BaseModel):
@@ -28,7 +36,26 @@ class Location(BaseModel):
     alias: Optional[str] = None
     id: Optional[str] = None
     residual_short: ResidualShort
+    residual_long: Optional[ResidualLong] = None
+    producers: Optional[list[Producer]] = []
     settings: LocationSettings
+
+    @classmethod
+    def from_domain(cls, location: DLocation):
+        return cls(
+            state=location.state,
+            alias=location.alias,
+            id=str(location.id),
+            residual_short=ResidualShort(malo=location.residual_short.malo),
+            residual_long=ResidualLong(malo=location.residual_long.malo) if location.residual_long else None,
+            producers=[Producer(malo=p.malo) for p in location.producers],
+            settings=LocationSettings(
+                active_from=location.settings.active_from,
+                active_until=location.settings.active_until
+                if location.settings.active_until
+                else None,
+        ),
+        )
 
 
 @router.get("/")
@@ -38,18 +65,7 @@ def get_locations(bus: Annotated[MessageBus, Depends(get_bus)]):
         type_adapter = TypeAdapter(list[Location])
 
         locations = [
-            Location(
-                id=str(loc.id),
-                state=loc.state,
-                alias=loc.alias,
-                residual_short=ResidualShort(malo=loc.residual_short.malo),
-                settings=LocationSettings(
-                    active_from=loc.settings.active_from,
-                    active_until=loc.settings.active_until
-                    if loc.settings.active_until
-                    else None,
-                ),
-            )
+            Location.from_domain(loc)
             for loc in locations
         ]
 
@@ -65,18 +81,7 @@ def get_location(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str)
         if not location:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         return Location.model_validate(
-            Location(
-                id=str(location.id),
-                state=location.state,
-                alias=location.alias,
-                residual_short=ResidualShort(malo=location.residual_short.malo),
-                settings=LocationSettings(
-                    active_from=location.settings.active_from,
-                    active_until=location.settings.active_until
-                    if location.settings.active_until
-                    else None,
-                ),
-            )
+            Location.from_domain(location)
         )
 
 
@@ -84,11 +89,14 @@ def get_location(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str)
 def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Location):
     state = State(fa_location.state)  # TODO primitives?
     residual_short = ResidualShort(malo=fa_location.residual_short.malo)
+    residual_long = ResidualLong(malo=fa_location.residual_long.malo) if fa_location.residual_long else None
     location: DLocation = bus.handle(
         commands.CreateLocation(
             state=state,
             alias=fa_location.alias,
             residual_short_malo=residual_short.malo,
+            residual_long_malo=residual_long.malo,
+            producer_malos=[producer.malo for producer in fa_location.producers],
             settings_active_from=fa_location.settings.active_from,
             settings_active_until=fa_location.settings.active_until
             if fa_location.settings.active_until
@@ -96,16 +104,7 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
         )
     )
     return Location.model_validate(
-        Location(
-            id=str(location.id),
-            state=location.state,
-            alias=location.alias,
-            residual_short=ResidualShort(malo=location.residual_short.malo),
-            settings=LocationSettings(
-                active_from=fa_location.settings.active_from,
-                active_until=fa_location.settings.active_until,
-            ),
-        )
+        Location.from_domain(location)
     )
 
 
