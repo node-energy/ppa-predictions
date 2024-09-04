@@ -14,6 +14,43 @@ from src.utils.dataframe_schemas import TimeSeriesSchema
 from src.utils.timezone import TIMEZONE_BERLIN
 
 
+class EnercastSftpClient(SftpMixin):
+    def __init__(self):
+        self.username: str = settings.enercast_ftp_username
+        self.password: str = settings.enercast_ftp_pass
+        self.host: str = settings.enercast_ftp_host
+
+    def download_generation_prediction(self, asset_identifier: str) -> list[io.BytesIO]:
+        try:
+            self._open_sftp()
+            self._sftp.chdir("/forecasts")
+            return self._download_relevant_files(asset_identifier)
+        except Exception as exc:
+            print(exc)
+        finally:
+            self._sftp.close()
+            self._ssh.close()
+
+    def _download_relevant_files(self, asset_identifier: str) -> list[io.BytesIO]:
+        file_names: list[str] = []
+        for file_name in self._sftp.listdir():
+            if file_name.endswith(".csv") and file_name.startswith(
+                    asset_identifier
+            ):
+                file_names.append(file_name)
+
+        file_objs = []
+        # todo this is pretty slow, we could think about only downloading files where the timestamp in the file name
+        # indicates that it contains data for the relevant time period
+        for file_name in file_names:
+            file_obj = io.BytesIO()
+            file_obj.name = file_name
+            self._sftp.getfo(file_name, file_obj)
+            file_obj.seek(0)
+            file_objs.append(file_obj)
+        return file_objs
+
+
 class EnercastSftpDataRetriever(AbstractLoadDataRetriever):
     def __init__(self, sftp_client: SftpDownloadGenerationPrediction = EnercastSftpClient()):
         self.sftp_client = sftp_client
@@ -59,43 +96,6 @@ class EnercastSftpDataRetriever(AbstractLoadDataRetriever):
         if timestamp_1 > timestamp_2:
             return 1
         return 0
-
-
-class EnercastSftpClient(SftpMixin):
-    def __init__(self):
-        self.username: str = settings.enercast_ftp_username
-        self.password: str = settings.enercast_ftp_pass
-        self.host: str = settings.enercast_ftp_host
-
-    def download_generation_prediction(self, asset_identifier: str) -> list[io.BytesIO]:
-        try:
-            self._open_sftp()
-            self._sftp.chdir("/forecasts")
-            return self._download_relevant_files(asset_identifier)
-        except Exception as exc:
-            print(exc)
-        finally:
-            self._sftp.close()
-            self._ssh.close()
-
-    def _download_relevant_files(self, asset_identifier: str) -> list[io.BytesIO]:
-        file_names: list[str] = []
-        for file_name in self._sftp.listdir():
-            if file_name.endswith(".csv") and file_name.startswith(
-                    asset_identifier
-            ):
-                file_names.append(file_name)
-
-        file_objs = []
-        # todo this is pretty slow, we could think about only downloading files where the timestamp in the file name
-        # indicates that it contains data for the relevant time period
-        for file_name in file_names:
-            file_obj = io.BytesIO()
-            file_obj.name = file_name
-            self._sftp.getfo(file_name, file_obj)
-            file_obj.seek(0)
-            file_objs.append(file_obj)
-        return file_objs
 
 
 class EnercastApiDataRetriever(AbstractLoadDataRetriever):

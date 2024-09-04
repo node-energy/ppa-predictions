@@ -14,6 +14,53 @@ from src.utils.dataframe_schemas import TimeSeriesSchema, IetEigenverbrauchSchem
 from src.utils.timezone import TIMEZONE_BERLIN
 
 
+class IetSftpClient(SftpMixin):
+    def __init__(self):
+        self.username: str = settings.iet_sftp_username
+        self.password: str = settings.iet_sftp_pass
+        self.host: str = settings.iet_sftp_host
+
+    def download_generation_prediction(self, asset_identifier: str) -> list[io.BytesIO]:
+        try:
+            self._open_sftp()
+            self._sftp.chdir("/Erzeugungsprognose")
+            return self._download_relevant_files(asset_identifier)
+        except Exception as exc:
+            print(exc)
+        finally:
+            self._sftp.close()
+            self._ssh.close()
+
+    def _download_relevant_files(self, asset_identifier: str) -> list[io.BytesIO]:
+        file_names: list[str] = []
+        for file_name in self._sftp.listdir():
+            match = iet_generation_file_name_match(file_name)
+            if match and match["asset_id"] == asset_identifier:
+                file_names.append(file_name)
+
+        file_objs = []
+        # todo this is pretty slow, we could think about only downloading files where the timestamp in the file name
+        # indicates that it contains data for the relevant time period
+        for file_name in file_names:
+            file_obj = io.BytesIO()
+            file_obj.name = file_name
+            self._sftp.getfo(file_name, file_obj)
+            file_obj.seek(0)
+            file_objs.append(file_obj)
+        return file_objs
+
+    def upload_own_consumption_file(self, file_obj: io.BytesIO):
+        try:
+            self._open_sftp()
+            self._sftp.chdir("/Eigenverbrauch")
+            self._sftp.putfo(file_obj, file_obj.name)
+        except Exception as exc:
+            print(exc)
+        finally:
+            self._sftp.close()
+            self._ssh.close()
+
+
 class IetSftpGenerationDataRetriever(AbstractLoadDataRetriever):
     def __init__(self, sftp_client: SftpDownloadGenerationPrediction = IetSftpClient()):
         self.sftp_client = sftp_client
@@ -72,53 +119,6 @@ def iet_generation_file_name_match(file_name: str) -> re.Match:
         "(?P<creation_timestamp>20\d{6}_\d{4})_erzeugungsprognose_(?P<asset_id>[0-9A-Fa-f\-]*)_(?P<prognosis_date>20\d{6}).csv"
     )
     return re.fullmatch(pattern, file_name)
-
-
-class IetSftpClient(SftpMixin):
-    def __init__(self):
-        self.username: str = settings.iet_sftp_username
-        self.password: str = settings.iet_sftp_pass
-        self.host: str = settings.iet_sftp_host
-
-    def download_generation_prediction(self, asset_identifier: str) -> list[io.BytesIO]:
-        try:
-            self._open_sftp()
-            self._sftp.chdir("/Erzeugungsprognose")
-            return self._download_relevant_files(asset_identifier)
-        except Exception as exc:
-            print(exc)
-        finally:
-            self._sftp.close()
-            self._ssh.close()
-
-    def _download_relevant_files(self, asset_identifier: str) -> list[io.BytesIO]:
-        file_names: list[str] = []
-        for file_name in self._sftp.listdir():
-            match = iet_generation_file_name_match(file_name)
-            if match and match["asset_id"] == asset_identifier:
-                file_names.append(file_name)
-
-        file_objs = []
-        # todo this is pretty slow, we could think about only downloading files where the timestamp in the file name
-        # indicates that it contains data for the relevant time period
-        for file_name in file_names:
-            file_obj = io.BytesIO()
-            file_obj.name = file_name
-            self._sftp.getfo(file_name, file_obj)
-            file_obj.seek(0)
-            file_objs.append(file_obj)
-        return file_objs
-
-    def upload_own_consumption_file(self, file_obj: io.BytesIO):
-        try:
-            self._open_sftp()
-            self._sftp.chdir("/Eigenverbrauch")
-            self._sftp.putfo(file_obj, file_obj.name)
-        except Exception as exc:
-            print(exc)
-        finally:
-            self._sftp.close()
-            self._ssh.close()
 
 
 class IetSftpConsumptionDataSender(AbstractLoadDataSender):
