@@ -211,3 +211,9 @@ def list_location_predictions(
 def send_updated_predictions_for_all(bus: Annotated[MessageBus, Depends(get_bus)]):
     bus.handle(commands.UpdatePredictAll())
     return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.post("/send_eigenverbrauchs_predictions_impuls")
+def send_all_eigenverbrauch_predictions_to_impuls_energy_trading(bus: Annotated[MessageBus, Depends(get_bus)]):
+    bus.handle(commands.SendAllEigenverbrauchsPredictions())
+    return Response(status_code=status.HTTP_202_ACCEPTED)

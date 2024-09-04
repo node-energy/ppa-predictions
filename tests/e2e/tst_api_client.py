@@ -1,20 +1,34 @@
+import pandas as pd
 import pytest
 from alembic import command
 from alembic.config import Config
 from pathlib import Path
 from fastapi.testclient import TestClient
+from pandas._testing import assert_frame_equal
+from pandera.typing import DataFrame
 
+from src import enums
 from src.config import settings
 from src.enums import State
 from src.main import app
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
-from src.services.load_data_exchange.common import APILoadDataRetriever
+from src.services.load_data_exchange.common import APILoadDataRetriever, AbstractLoadDataSender
 from src.services.data_store import LocalDataStore
-
+from src.utils.dataframe_schemas import IetEigenverbrauchSchema
+from src.utils.timezone import TIMEZONE_UTC
+from tests.factories import LocationFactory, PredictionFactory, ProducerFactory
 
 client = TestClient(app, headers={"X-Api-Key": settings.api_key})
 ALEMBIC_BASE_PATH = Path(__file__).parent.parent.parent.resolve()
+
+
+class FakeIetSftpConsumptionDataSender(AbstractLoadDataSender):
+    def __init__(self):
+        self.data = []
+
+    def send_data(self, data: pd.DataFrame):
+        self.data.append(data)
 
 
 @pytest.fixture
@@ -24,6 +38,7 @@ def bus():
         uow=SqlAlchemyUnitOfWork(),
         ldr=APILoadDataRetriever(),
         dst=LocalDataStore(),
+        data_sender=FakeIetSftpConsumptionDataSender(),
     )
     return bus
 
@@ -95,3 +110,47 @@ class TestLocation:
     def test_calculate_predictions(self, bus, setup_database):
         ...
         # todo
+
+    def test_send_eigenverbrauch_predictions(self, bus, setup_database):
+        settings.send_predictions_enabled = True
+        # ARRANGE
+        location_1 = LocationFactory.build(
+            producers=[
+                ProducerFactory.build(prognosis_data_retriever=enums.DataRetriever.IMPULS_ENERGY_TRADING_SFTP)
+            ],
+            predictions=[
+                PredictionFactory.build(type=enums.PredictionType.CONSUMPTION)
+            ]
+        )
+        location_2 = LocationFactory.build(
+            producers=[
+                ProducerFactory.build(prognosis_data_retriever=enums.DataRetriever.IMPULS_ENERGY_TRADING_SFTP)
+            ],
+            predictions=[
+                PredictionFactory.build(type=enums.PredictionType.CONSUMPTION)
+            ]
+        )
+        with bus.uow as uow:
+            uow.locations.add(location_1)
+            uow.locations.add(location_2)
+            uow.commit()
+        # ACT
+        response = client.post("/locations/send_eigenverbrauchs_predictions_impuls/")
+
+        # ASSERT
+        assert response.status_code == 202
+        assert_frame_equal(bus.data_sender.data[0], DataFrame[IetEigenverbrauchSchema](
+                index=pd.DatetimeIndex(
+                    data=pd.date_range(
+                        start=location_1.predictions[0].df.index[0].astimezone(TIMEZONE_UTC),
+                        end=location_1.predictions[0].df.index[-1].astimezone(TIMEZONE_UTC),
+                        freq="15min",
+                    ),
+                    name="#timestamp",
+                ),
+                data={
+                    f"{location_1.id}": (location_1.predictions[0].df["value"] / 1000).round(3),
+                    f"{location_2.id}": (location_2.predictions[0].df["value"] / 1000).round(3),
+                }
+            )
+        )

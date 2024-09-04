@@ -73,7 +73,7 @@ class TestIETSftpConsumptionDataSender:
         expected_bytes = b'#timestamp;asset-1;asset-2\n01.01.2021 00:00:00;1;5\n01.01.2021 00:15:00;2;4\n01.01.2021 00:30:00;3;3\n01.01.2021 00:45:00;4;2\n01.01.2021 01:00:00;5;1\n'
         uploaded_bytes = IetSftpConsumptionDataSender(
             sftp_client=FakeIetSftpClient()
-        ).send_data(data)
+        ).upload_eigenverbrauch(data)
         assert uploaded_bytes == expected_bytes
 
 

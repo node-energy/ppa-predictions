@@ -4,6 +4,9 @@ import logging
 import datetime
 from uuid import UUID
 
+import pandas as pd
+from pandera.typing import DataFrame
+
 import src.enums
 import src.services.load_data_exchange.common
 from src.config import settings
@@ -13,8 +16,12 @@ from src.domain.model import MarketLocation
 from src.infrastructure import unit_of_work
 from src.services import predictor, data_store
 from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP
-from src.utils.timezone import TIMEZONE_BERLIN
-from src.enums import Measurand
+from src.utils.dataframe_schemas import IetEigenverbrauchSchema, TimeSeriesSchema
+from src.utils.external_schedules import GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
+from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
+from src.enums import Measurand, DataRetriever, PredictionType
+from src.services.load_data_exchange.common import AbstractLoadDataSender
+from src import enums
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +35,7 @@ def update_and_predict_all(
     uow: unit_of_work.AbstractUnitOfWork,
     ldr: src.services.load_data_exchange.common.AbstractLoadDataRetriever,
     dst: data_store.AbstractDataStore,
+    data_sender: AbstractLoadDataSender
 ):
     with uow:
         for location in uow.locations.get_all():
@@ -40,6 +48,9 @@ def update_and_predict_all(
             send_predictions(
                 commands.SendPredictions(location_id=str(location.id)), uow, dst
             )
+        send_eigenverbrauchs_predictions_to_impuls_energy_trading(
+            commands.SendAllEigenverbrauchsPredictions(), uow, data_sender
+        )
 
 
 def update_historic_data(
@@ -173,6 +184,8 @@ def send_predictions(
     uow: unit_of_work.AbstractUnitOfWork,
     dst: data_store.AbstractDataStore,
 ):
+    # this only sends data to internal fahrplanmanagement, because impuls requires one single file for all locations
+    # so in case one location was updated, sending jobs for impuls must be triggered additionally
     if settings.send_predictions_enabled:
         with uow:
             location: model.Location = uow.locations.get(UUID(cmd.location_id))
@@ -191,6 +204,43 @@ def send_predictions(
                 if saved:
                     long_prediction.receivers.append(enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
             uow.commit()    # todo does this work as expected?
+
+
+def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
+    _: commands.SendAllEigenverbrauchsPredictions,
+    uow: unit_of_work.AbstractUnitOfWork,
+    data_sender: AbstractLoadDataSender
+):
+    # this is annoying for testing, check should happen later, just before sending the data
+    # if not settings.send_predictions_enabled:
+    #     return
+    eigenverbrauchs_predictions: [DataFrame[TimeSeriesSchema]] = []
+    with uow:
+        locations: [model.Location] = uow.locations.get_all()
+        for location in locations:
+            if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
+                continue
+            # maybe command can have optional parameter to enforce sending of predictions even if they where not sent to internal fahrplanmanagement
+            eigenverbrauch_prediction = location.get_most_recent_prediction(
+                prediction_type=PredictionType.CONSUMPTION, receivers_contains=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+            )
+            if eigenverbrauch_prediction is None or not eigenverbrauch_prediction.covers_prediction_horizon(reference_date=datetime.date.today()):
+                # TODO send errors to sentry! maybe more specific error messages depending on the reason
+                logger.error(f"Could not get valid eigenverbrauch prediction for location {location.alias}")
+                continue
+            eigenverbrauch_prediction.receivers.append(enums.PredictionReceiver.IMPULS_ENERGY_TRADING)
+            df = eigenverbrauch_prediction.df.copy()
+            TimeSeriesSchema.validate(df)
+            df.columns = [str(location.id)]
+            eigenverbrauchs_predictions.append(df)
+        df = pd.concat(eigenverbrauchs_predictions, axis=1)
+        df = df.tz_convert(TIMEZONE_UTC)
+        df.index.name = "#timestamp"
+        df = df.div(1000)  # convert from kW to MW
+        df = df.round(3)  # todo clarify for which unit the 3 digits rule applies
+        df = DataFrame[IetEigenverbrauchSchema](df)
+        data_sender.send_data(df)
+        uow.commit()
 
 
 def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfWork):
@@ -262,4 +312,5 @@ COMMAND_HANDLERS = {
     commands.CalculatePredictions: calculate_predictions,
     commands.SendPredictions: send_predictions,
     commands.UpdatePredictAll: update_and_predict_all,
+    commands.SendAllEigenverbrauchsPredictions: send_eigenverbrauchs_predictions_to_impuls_energy_trading,
 }

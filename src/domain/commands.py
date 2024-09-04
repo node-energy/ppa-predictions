@@ -86,3 +86,8 @@ class FetchHistoricDataForComponent(Command):
 @dataclass
 class MakeAllPredictions(Command):
     pass
+
+
+@dataclass
+class SendAllEigenverbrauchsPredictions(Command):
+    pass

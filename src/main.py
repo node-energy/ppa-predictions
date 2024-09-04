@@ -5,8 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.config import settings
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
+from src.services.load_data_exchange.impuls_energy_trading import IetSftpConsumptionDataSender
 from src.services.load_data_exchange.optinode_database import OptinodeDataRetriever
-from src.services.data_store import LocalDataStore
+from src.services.data_store import EmailDataStore
 from src.api import locations as locations_api
 from src.api.middleware import ApiKeyAuthMiddleware
 from src.utils.decorators import repeat_at
@@ -50,7 +51,8 @@ async def init_bus():
     bus.setup(
         uow=SqlAlchemyUnitOfWork(),
         ldr=OptinodeDataRetriever(),
-        dst=LocalDataStore(),
+        dst=EmailDataStore(),
+        data_sender=IetSftpConsumptionDataSender(),
     )
 
 

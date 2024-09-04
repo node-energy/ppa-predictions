@@ -32,11 +32,13 @@ class MessageBus:
         uow: unit_of_work.AbstractUnitOfWork,
         ldr: src.services.load_data_exchange.common.AbstractLoadDataRetriever,
         dst: data_store.AbstractDataStore,
+        data_sender: src.services.load_data_exchange.common.AbstractLoadDataSender,
     ):
         self.uow = uow
         self.ldr = ldr
         self.dst = dst
-        dependencies = {"uow": uow, "ldr": ldr, "dst": dst}
+        self.data_sender = data_sender
+        dependencies = {"uow": uow, "ldr": ldr, "dst": dst, "data_sender": data_sender}
         self.command_handlers = {
             command_type: inject_dependencies(handler, dependencies)
             for command_type, handler in COMMAND_HANDLERS.items()

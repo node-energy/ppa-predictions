@@ -3,12 +3,15 @@ from __future__ import annotations
 import abc
 import uuid
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, timedelta, time
 from typing import Optional
 from dataclasses import dataclass, field
 
-from src.enums import Measurand, DataRetriever, PredictionType, State
 from src.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver
+from src.utils.timezone import TIMEZONE_BERLIN
+
+
+PROGNOSIS_HORIZON_DAYS = 7
 
 
 @dataclass
@@ -59,10 +62,11 @@ class Location(AggregateRoot):
     def has_production(self):
         return self.producers and len(self.producers) > 0
 
-    def get_most_recent_prediction(self, prediction_type):
-        return next(
-            (p for p in sorted(self.predictions, reverse=True) if p.type == prediction_type), None
-        )
+    def get_most_recent_prediction(self, prediction_type, receivers_contains=None) -> Optional[Prediction]:
+        sorted_predictions = sorted(self.predictions, reverse=True)
+        criteria = lambda p: p.type == prediction_type and (
+            receivers_contains in p.receivers if receivers_contains else True)
+        return next((p for p in sorted_predictions if criteria(p)), None)
 
     def calculate_local_consumption(self):
         if not self.has_production:
@@ -196,6 +200,11 @@ class Prediction(Entity):
 
     def __gt__(self, other: Prediction):
         return self.created > other.created
+
+    def covers_prediction_horizon(self, reference_date: date) -> bool:
+        prediction_horizon_start = datetime.combine(reference_date + timedelta(days=1), time(0, 0), tzinfo=TIMEZONE_BERLIN)
+        prediction_horizon_end = datetime.combine(prediction_horizon_start + timedelta(days=PROGNOSIS_HORIZON_DAYS), time(23, 45), tzinfo=TIMEZONE_BERLIN)
+        return self.df.first_valid_index()<= prediction_horizon_start and self.df.last_valid_index() >= prediction_horizon_end
 
 
 # value_object
