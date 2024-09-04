@@ -8,6 +8,7 @@ from typing import Optional
 from dataclasses import dataclass, field
 
 from src.enums import Measurand, DataRetriever, PredictionType, State
+from src.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver
 
 
 @dataclass
@@ -188,6 +189,7 @@ class Prediction(Entity):
     created: datetime = field(default_factory=datetime.now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
     df: pd.DataFrame
     type: PredictionType
+    receivers: list[PredictionReceiver] = field(default_factory=list)
 
     def __eq__(self, other):
         return self.id == other.id

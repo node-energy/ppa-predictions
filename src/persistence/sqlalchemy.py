@@ -2,8 +2,10 @@ from __future__ import annotations
 from uuid import UUID
 from datetime import datetime, date, timezone
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
-from sqlalchemy import DateTime, Date, ForeignKey, PickleType, UniqueConstraint
+from sqlalchemy import DateTime, Date, ForeignKey, PickleType, UniqueConstraint, Column
 from typing import Optional
+
+from sqlalchemy.sql.sqltypes import ARRAY, String
 
 
 class Base(DeclarativeBase):
@@ -97,6 +99,7 @@ class Prediction(Base, UUIDMixin):
     location: Mapped[Location] = relationship(
         back_populates="predictions", foreign_keys=[location_id]
     )
+    receivers: Mapped[list[str]] = Column(ARRAY(String), server_default="{}")
 
 
 class HistoricLoadData(Base, UUIDMixin):

@@ -44,3 +44,8 @@ class State(str, Enum):
     sachsen_anhalt = "ST"
     schleswig_holstein = "SH"
     thuringen = "TH"
+
+
+class PredictionReceiver(str, Enum):
+    INTERNAL_FAHRPLANMANAGEMENT = "internal_fahrplanmanagement"
+    IMPULS_ENERGY_TRADING = "impuls_energy_trading"

@@ -8,18 +8,19 @@ from src.domain.model import Prediction
 
 class AbstractDataStore(abc.ABC):
     @abc.abstractmethod
-    def save_file(self, prediction: Prediction, *args, **kwargs):
+    def save_file(self, prediction: Prediction, *args, **kwargs) -> bool:
         raise NotImplementedError()
 
 
 class EmailDataStore(AbstractDataStore):
-    def save_file(self, prediction, file_name, buffer, recipient):
+    def save_file(self, prediction, file_name, buffer, recipient) -> bool:
         email_service = ForecastEmailSender()
-        email_service.send(recipient, file_name, buffer)
+        successful = email_service.send(recipient, file_name, buffer)
+        return successful
 
 
 class LocalDataStore(AbstractDataStore):
-    def save_file(self, prediction: Prediction, *args, **kwargs):
+    def save_file(self, prediction: Prediction, *args, **kwargs) -> bool:
         malo = kwargs.get("market_location")
         buffer = io.BytesIO()
         prediction.df.to_csv(
@@ -36,3 +37,4 @@ class LocalDataStore(AbstractDataStore):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "wb") as f:
             f.write(buffer.getbuffer())
+        return True

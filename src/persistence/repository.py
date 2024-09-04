@@ -7,7 +7,7 @@ import src.enums
 from src.domain import model
 from sqlalchemy.orm import Session
 
-from src.enums import Measurand, DataRetriever, ComponentType, PredictionType
+from src.enums import Measurand, DataRetriever, ComponentType, PredictionType, PredictionReceiver
 from src.persistence.sqlalchemy import Base as DBBase, LocationSettings
 from src.persistence.sqlalchemy import (
     Location as DBLocation,
@@ -208,7 +208,8 @@ class LocationRepository(
                 id=db_prediction.id,
                 created=db_prediction.created_at,
                 type=PredictionType(db_prediction.type),
-                df=pd.read_pickle(f)
+                df=pd.read_pickle(f),
+                receivers=[PredictionReceiver(r) for r in db_prediction.receivers],
             )
 
         state = src.enums.State(db_obj.state)
@@ -274,7 +275,10 @@ class LocationRepository(
             prediction.df.to_pickle(f)
             f.seek(0)
             return DBPrediction(
-                id=prediction.id, type=prediction.type.value, dataframe=f.read()
+                id=prediction.id,
+                type=prediction.type.value,
+                dataframe=f.read(),
+                receivers=[r.value for r in prediction.receivers],
             )
 
         return DBLocation(
