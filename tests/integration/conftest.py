@@ -14,18 +14,17 @@ from src.persistence.sqlalchemy import Base
 
 
 @pytest.fixture
-def test_db_engine():
-    engine = create_engine(settings.db_connection_string)
+def in_memory_sqlite_db():
+    engine = create_engine("sqlite:///db1.db") #create_engine("sqlite:///:memory:")
+    #metadata = MetaData()
     metadata = Base.metadata
     metadata.create_all(engine)
     return engine
 
 
 @pytest.fixture
-def session_factory(test_db_engine):
-    return sessionmaker(
-                bind=test_db_engine
-            )
+def sqlite_session_factory(in_memory_sqlite_db):
+    yield sessionmaker(bind=in_memory_sqlite_db)
 
 
 def random_malo():
