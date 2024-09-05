@@ -4,8 +4,10 @@ import pytest
 import uuid
 import pandas as pd
 import random
-from sqlalchemy import create_engine, MetaData
-from sqlalchemy.orm import sessionmaker, clear_mappers
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from src import enums
 from src.domain import model
 from src.persistence.sqlalchemy import Base
 
@@ -42,9 +44,9 @@ def historic_load_profile(component):
 
 @pytest.fixture
 def location():
-    return model.Location(state=model.State.berlin, residual_short=model.Consumer(malo=random_malo()))
+    return model.Location(state=enums.State.berlin, residual_short=model.Consumer(market_location=random_malo()))
 
 
 @pytest.fixture
 def producer():
-    return model.Producer(malo=random_malo())
+    return model.Producer(market_location=random_malo())

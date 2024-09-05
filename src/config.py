@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     enercast_ftp_username: str
     enercast_ftp_pass: str
     enercast_ftp_host: str = "transfer.enercast.de"
+    iet_sftp_username: str
+    iet_sftp_pass: str
+    iet_sftp_username: str = "nodeenergysftp.impuls"
 
     optinode_db_connection_string: str
 
