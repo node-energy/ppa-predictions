@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import datetime
+import uuid
+from typing import Optional
 from uuid import UUID
 
 import pandas as pd
@@ -251,44 +253,57 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
     with uow:
         producers = []
         for p in cmd.producers:
-            if p["id"] is not None:
-                producers.append(model.Producer(
-                    id=p["id"],
-                    market_location=model.MarketLocation(
-                        number=p["market_location_number"],
-                        measurand=src.enums.Measurand.NEGATIVE,
-                    ),
-                    prognosis_data_retriever=p["prognosis_data_retriever"]
-                ))
-            else:
-                producers.append(model.Producer(
-                    market_location=model.MarketLocation(
-                        number=p["market_location_number"],
-                        measurand=src.enums.Measurand.NEGATIVE,
-                    ),
-                    prognosis_data_retriever=p["prognosis_data_retriever"]
-                ))
+            market_location = _build_market_location(
+                id_=p["market_location_id"], number=p["market_location_number"], measurand=src.enums.Measurand.NEGATIVE,
+            )
+            producer = _build_producer(
+                id_=p["id"], market_location=market_location, prognosis_data_retriever=p["prognosis_data_retriever"]
+            )
+            producers.append(producer)
+
+        residual_short = _build_market_location(
+                id_=cmd.residual_short["id"], number=cmd.residual_short["number"], measurand=src.enums.Measurand.POSITIVE,
+            )
+        residual_long = _build_market_location(
+                id_=cmd.residual_long["id"], number=cmd.residual_long["number"], measurand=src.enums.Measurand.NEGATIVE,
+            ) if cmd.residual_long else None
 
         location = model.Location(
             state=cmd.state,
             alias=cmd.alias,
-            residual_short=model.MarketLocation(
-                number=cmd.residual_short_malo,
-                measurand=src.enums.Measurand.POSITIVE,
-            ),
-            residual_long=model.MarketLocation(
-                number=cmd.residual_long_malo,
-                measurand=src.enums.Measurand.NEGATIVE,
-            ) if cmd.residual_long_malo else None,
+            residual_short=residual_short,
+            residual_long=residual_long,
             producers=producers,
             settings=model.LocationSettings(
                 active_from=cmd.settings_active_from,
                 active_until=cmd.settings_active_until,
             ),
         )
+        if cmd.id:
+            location.id = cmd.id
         uow.locations.add(location)
         uow.commit()
         return location
+
+
+def _build_market_location(id_: Optional[uuid.UUID], number: str, measurand: src.enums.Measurand) -> model.MarketLocation:
+    malo = model.MarketLocation(
+        number=number,
+        measurand=measurand,
+    )
+    if id_:
+        malo.id = id_
+    return malo
+
+
+def _build_producer(id_: Optional[uuid.UUID], market_location: model.MarketLocation, prognosis_data_retriever: src.enums.DataRetriever) -> model.Producer:
+    producer = model.Producer(
+        market_location=market_location,
+        prognosis_data_retriever=prognosis_data_retriever
+    )
+    if id_:
+        producer.id = id_
+    return producer
 
 
 def update_location_settings(

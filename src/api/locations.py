@@ -15,10 +15,12 @@ router = APIRouter(prefix="/locations")
 
 
 class ResidualShort(BaseModel):
+    id: Optional[uuid.UUID] = None
     number: str
 
 
 class ResidualLong(BaseModel):
+    id: Optional[uuid.UUID] = None
     number: str
 
 
@@ -34,9 +36,9 @@ class LocationSettings(BaseModel):
 
 
 class Location(BaseModel):
+    id: Optional[uuid.UUID] = None
     state: str
     alias: Optional[str] = None
-    id: Optional[str] = None
     residual_short: ResidualShort
     residual_long: Optional[ResidualLong] = None
     producers: Optional[list[Producer]] = []
@@ -47,13 +49,13 @@ class Location(BaseModel):
         return cls(
             state=location.state,
             alias=location.alias,
-            id=str(location.id),
-            residual_short=ResidualShort(number=location.residual_short.number),
-            residual_long=ResidualLong(number=location.residual_long.number) if location.residual_long else None,
+            id=location.id,
+            residual_short=ResidualShort(id=location.residual_short.id, number=location.residual_short.number),
+            residual_long=ResidualLong(id=location.residual_long.id, number=location.residual_long.number) if location.residual_long else None,
             producers=[
                 Producer(
                     id=p.id,
-                    market_location=ResidualLong(number=p.market_location.number),
+                    market_location=ResidualLong(id=p.market_location.id, number=p.market_location.number),
                     prognosis_data_retriever=DataRetriever(p.prognosis_data_retriever)
                 ) for p in location.producers
             ],
@@ -100,16 +102,22 @@ def get_location(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str)
 @router.post("/")
 def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Location):
     state = State(fa_location.state)  # TODO primitives?
-    residual_short = ResidualShort(number=fa_location.residual_short.number).number
-    residual_long = ResidualLong(number=fa_location.residual_long.number).number if fa_location.residual_long else None
     location: DLocation = bus.handle(
         commands.CreateLocation(
+            id=fa_location.id,
             state=state,
             alias=fa_location.alias,
-            residual_short_malo=residual_short,
-            residual_long_malo=residual_long,
+            residual_short={
+                "id": fa_location.residual_short.id,
+                "number": fa_location.residual_short.number,
+            },
+            residual_long={
+                "id": fa_location.residual_long.id,
+                "number": fa_location.residual_long.number,
+            } if fa_location.residual_long else None,
             producers=[{
                 "id": producer.id,
+                "market_location_id": producer.market_location.id,
                 "market_location_number": producer.market_location.number,
                 "prognosis_data_retriever": producer.prognosis_data_retriever
             } for producer in fa_location.producers],   # TODO other datatype e.g. namedtuple possible here?

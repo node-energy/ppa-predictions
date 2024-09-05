@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, date
 from dataclasses import dataclass
 from typing import Literal, Optional
@@ -30,11 +31,12 @@ class SendPredictions(Command):
 
 @dataclass
 class CreateLocation(Command):
+    id: Optional[uuid.UUID]
     state: State
     alias: Optional[str]
-    residual_short_malo: str
-    residual_long_malo: Optional[str]
-    producers: Optional[list[dict[str, str | DataRetriever]]]
+    residual_short: dict[str, uuid.UUID | str]
+    residual_long: Optional[dict[str, uuid.UUID | str]]
+    producers: Optional[list[dict[str, str | DataRetriever | uuid.UUID]]]
     settings_active_from: date
     settings_active_until: Optional[date]
 

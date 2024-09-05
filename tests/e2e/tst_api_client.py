@@ -45,27 +45,86 @@ def setup_database():  # TODO Hack
 
 
 class TestLocation:
-    def test_create_location(self, bus, setup_database):
-        json = {
-            "state": State.BERLIN.value,
-            "alias": "New Location",
-            "residual_short": {"number": "market_location-1"},
-            "residual_long": {"number": "market_location-2"},
-            "producers": [
-                {
-                    "market_location": {
-                        "number": "market_location-3"
-                    },
-                    "prognosis_data_retriever": "impuls_energy_trading_sftp"
-                }
-            ],
-            "settings": {"active_from": "2024-01-01", "active_until": None},
-        }
-
+    @pytest.mark.parametrize(
+        "json",
+        [
+            pytest.param({
+                    "state": State.BERLIN.value,
+                    "residual_short": {"number": "market_location-1"},
+                    "settings": {"active_from": "2024-01-01"},
+                }, id="only mandatory fields"
+            ),
+            pytest.param({
+                    "state": State.BERLIN.value,
+                    "alias": "New Location",
+                    "residual_short": {"number": "market_location-1"},
+                    "residual_long": {"number": "market_location-2"},
+                    "producers": [
+                        {
+                            "market_location": {
+                                "number": "market_location-3"
+                            },
+                            "prognosis_data_retriever": "impuls_energy_trading_sftp"
+                        }
+                    ],
+                    "settings": {"active_from": "2024-01-01", "active_until": None},
+                }, id="all fields but no ids specified"
+            ),
+            pytest.param({
+                    "id": "a0125769-fde8-47f9-87ab-0a9c7cc4ee00",
+                    "state": State.BERLIN.value,
+                    "alias": "New Location",
+                    "residual_short": {"id": "942ca59d-745c-492f-9095-d58cba45120d", "number": "market_location-1"},
+                    "residual_long": {"id": "ec489260-e178-4add-89c3-2166639218ac", "number": "market_location-2"},
+                    "producers": [
+                        {
+                            "id": "8d1cc110-fa2b-4fcc-a404-80155b431649",
+                            "market_location": {
+                                "id": "49214c9c-1474-4ac2-9bcc-d7a9c3c999d7",
+                                "number": "market_location-3"
+                            },
+                            "prognosis_data_retriever": "impuls_energy_trading_sftp"
+                        }
+                    ],
+                    "settings": {"active_from": "2024-01-01", "active_until": None},
+                }, id="all fields including all possible ids"
+            ),
+        ]
+    )
+    def test_create_location(self, bus, setup_database, json):
         response = client.post("/locations/", json=json)
         assert response.status_code == 200
-        json["producers"][0].update({"id": response.json()["producers"][0]["id"]})
-        assert json.items() <= response.json().items()
+
+        expected_json = {
+            'id': json["id"] if "id" in json.keys() else response.json()["id"],
+            'state': 'BE',
+            'alias': json["alias"] if "alias" in json.keys() else None,
+            'residual_short': {
+                'id': json['residual_short']["id"] if "id" in json['residual_short'].keys() else response.json()['residual_short']["id"],
+                'number': 'market_location-1'
+            },
+            'residual_long': {
+                'id': json['residual_long']['id'] if 'id' in json['residual_long'].keys() else response.json()['residual_long']['id'],
+                'number': 'market_location-2'
+            } if 'residual_long' in json.keys() else None,
+            'producers': [
+                {
+                    'id': json['producers'][0]['id'] if 'id' in json['producers'][0].keys() else response.json()['producers'][0]['id'],
+                    'market_location': {
+                        'id': json['producers'][0]['market_location']['id'] if 'id' in json['producers'][0]['market_location'].keys() else response.json()['producers'][0]['market_location']['id'],
+                        'number': 'market_location-3'
+                    },
+                    'prognosis_data_retriever': 'impuls_energy_trading_sftp'
+                }
+            ] if 'producers' in json.keys() else [
+            ],
+            'settings': {
+                'active_from': '2024-01-01',
+                'active_until': None
+            }
+        }
+
+        assert expected_json == response.json()
 
     def test_update_location_settings(self, bus, setup_database):
         json = {
