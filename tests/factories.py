@@ -78,7 +78,7 @@ class LocationFactory(factory.alchemy.SQLAlchemyModelFactory):
     class Meta:
         model = model.Location
 
-    state = enums.State.berlin
+    state = enums.State.BERLIN
     alias = LazyFunction(faker.word)
     residual_short = SubFactory(MarketLocationFactory, measurand=enums.Measurand.POSITIVE)
     residual_long = SubFactory(MarketLocationFactory, measurand=enums.Measurand.NEGATIVE)

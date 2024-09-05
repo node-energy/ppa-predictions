@@ -56,7 +56,7 @@ def setup_database():  # TODO Hack
 class TestLocation:
     def test_create_location(self, bus, setup_database):
         json = {
-            "state": State.berlin.value,
+            "state": State.BERLIN.value,
             "alias": "New Location",
             "residual_short": {"number": "market_location-1"},
             "residual_long": {"number": "market_location-2"},
@@ -78,7 +78,7 @@ class TestLocation:
 
     def test_update_location_settings(self, bus, setup_database):
         json = {
-            "state": State.berlin.value,
+            "state": State.BERLIN.value,
             "alias": "New Location",
             "residual_short": {"number": "market_location-1"},
             "settings": {"active_from": "2024-01-01", "active_until": None},
@@ -93,14 +93,14 @@ class TestLocation:
         assert response.json()["settings"]["active_until"] == "2024-01-10"
 
     def test_get_locations(self, bus, setup_database):
-        client.post("/locations/", json={"state": State.berlin, "alias": "Location-1", "residual_short": {"number": "market_location-1"}, "settings": {"active_from": "2024-01-01"}})
-        client.post("/locations/", json={"state": State.berlin, "alias": "Location-2", "residual_short": {"number": "market_location-2"}, "settings": {"active_from": "2024-01-01"}})
+        client.post("/locations/", json={"state": State.BERLIN, "alias": "Location-1", "residual_short": {"number": "market_location-1"}, "settings": {"active_from": "2024-01-01"}})
+        client.post("/locations/", json={"state": State.BERLIN, "alias": "Location-2", "residual_short": {"number": "market_location-2"}, "settings": {"active_from": "2024-01-01"}})
         response = client.get("/locations/")
         assert response.status_code == 200
         assert response.json()["total"] == 2
 
     def test_get_location(self, bus, setup_database):
-        json = {"state": State.berlin.value, "alias": "Location-1", "residual_short": {"number": "market_location-1"}, "settings": {"active_from": "2024-01-01", "active_until": None}}
+        json = {"state": State.BERLIN.value, "alias": "Location-1", "residual_short": {"number": "market_location-1"}, "settings": {"active_from": "2024-01-01", "active_until": None}}
         post_response = client.post("/locations/", json=json)
         location_id = post_response.json()["id"]
         response = client.get(f"/locations/{location_id}/")

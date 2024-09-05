@@ -49,7 +49,7 @@ def location():
             active_from=dt.date(2024, 1, 1),
             active_until=None,
         ),
-        state=enums.State.berlin,
+        state=enums.State.BERLIN,
         residual_short=model.MarketLocation(number=random_malo(), measurand=enums.Measurand.POSITIVE)
     )
 

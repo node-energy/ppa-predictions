@@ -35,7 +35,7 @@ class TestLocationRepository:
         location = Location(
             id=uuid.UUID("64c4a7dd-242e-48a3-8932-3f85f1d6009b"),
             settings=settings,
-            state=State.berlin,
+            state=State.BERLIN,
             residual_short=residual_short,
             residual_long=residual_long,
             producers=[producer_1],

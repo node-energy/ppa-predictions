@@ -114,6 +114,6 @@ class TestPrediction:
                 active_from=active_from,
                 active_until=active_until,
             ),
-            state=enums.State.berlin,
+            state=enums.State.BERLIN,
             residual_short=model.MarketLocation(number=random_malo(), measurand=enums.Measurand.POSITIVE),
         )
