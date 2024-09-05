@@ -8,10 +8,7 @@ from typing import Optional
 from dataclasses import dataclass
 from enum import Enum
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split, GridSearchCV
-
-# from src.domain.value_objects import Period
 
 
 @dataclass
@@ -74,15 +71,13 @@ class AbstractPredictor(abc.ABC):
 
     def _create_future_df(self):
         future_df = pd.DataFrame(
-            {
-                "datetime": pd.date_range(
-                    start=self.settings.output_period.start,
-                    end=self.settings.output_period.end,
-                    freq="15min",
-                )
-            }
+            index=pd.date_range(
+                start=self.settings.output_period.start,
+                end=self.settings.output_period.end,
+                freq=pd.offsets.Minute(15),
+                inclusive="left",  # end is exclusive
+            )
         )
-        future_df.set_index("datetime", inplace=True)
         return self._add_input_fields(future_df)
 
     def _add_input_fields(
@@ -177,7 +172,9 @@ class RandomForestRegressionPredictor(AbstractPredictor):
             future_prediction_s,
             sunday_future_df["value"],
         )
-        self.future_df = future_df["value"].round(3)
+        future_df = future_df[["value"]]
+        future_df["value"] = future_df["value"].round(3)
+        self.future_df = future_df
 
         # TODO rmse?
         # rmse_npa = rfr.predict(x_train)

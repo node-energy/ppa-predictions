@@ -1,3 +1,4 @@
+import datetime as dt
 import string
 
 import pytest
@@ -5,8 +6,11 @@ import uuid
 import pandas as pd
 import random
 from sqlalchemy import create_engine, MetaData
-from sqlalchemy.orm import sessionmaker, clear_mappers
+from sqlalchemy.orm import sessionmaker
+
+from src import enums
 from src.domain import model
+from src.domain.model import MarketLocation
 
 
 @pytest.fixture
@@ -40,9 +44,16 @@ def historic_load_profile(component):
 
 @pytest.fixture
 def location():
-    return model.Location(state=model.State.berlin, residual_short=model.Consumer(malo=random_malo()))
+    return model.Location(
+        settings=model.LocationSettings(
+            active_from=dt.date(2024, 1, 1),
+            active_until=None,
+        ),
+        state=enums.State.berlin,
+        residual_short=model.MarketLocation(number=random_malo(), measurand=enums.Measurand.POSITIVE)
+    )
 
 
 @pytest.fixture
 def producer():
-    return model.Producer(malo=random_malo())
+    return model.Producer(market_location=MarketLocation(number=random_malo(), measurand=enums.Measurand.NEGATIVE), prognosis_data_retriever=enums.DataRetriever.ENERCAST_SFTP)

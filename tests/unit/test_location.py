@@ -3,19 +3,17 @@ import datetime as dt
 import pandas as pd
 from pandas.testing import assert_frame_equal
 from src.domain.model import (
-    Consumer,
     HistoricLoadData,
     Location,
     Prediction,
-    PredictionType,
-    Producer,
-    State,
+    Producer, MarketLocation,
 )
+from src.enums import PredictionType, DataRetriever, Measurand
 
 
 def create_df_with_constant_values(value=42):
-    start = dt.datetime.now().replace(microsecond=0, second=0, minute=0)
-    end = start + dt.timedelta(days=30)
+    start = dt.datetime(2023, 12, 1, 0, 0)
+    end = start + dt.timedelta(days=365)
     df = pd.DataFrame(
         {"datetime": pd.date_range(start=start, end=end, freq="15min"), "value": value}
     )
@@ -25,9 +23,9 @@ def create_df_with_constant_values(value=42):
 
 class TestLocation:
     def test_only_one_producer_per_location(self, location):
-        producer = Producer(malo="MALO-PRODUCER-01")
+        producer = Producer(market_location=MarketLocation(number="MALO-PRODUCER-01", measurand=Measurand.NEGATIVE), prognosis_data_retriever=DataRetriever.ENERCAST_SFTP)
         location.add_component(producer)
-        producer2 = Producer(malo="MALO_PRODUCER-02")
+        producer2 = Producer(market_location=MarketLocation(number="MALO-PRODUCER-02", measurand=Measurand.NEGATIVE), prognosis_data_retriever=DataRetriever.ENERCAST_SFTP)
         location.add_component(producer2)
         assert producer in location.producers
         assert producer2 not in location.producers
@@ -41,7 +39,7 @@ class TestLocation:
 
     def test_calculate_local_consumption_with_producer(self, location, producer):
         input_df = create_df_with_constant_values()
-        producer.historic_load_data = HistoricLoadData(df=input_df)
+        producer.market_location.historic_load_data = HistoricLoadData(df=input_df)
         location.producers.append(producer)
         location.residual_short.historic_load_data = HistoricLoadData(df=input_df)
         result = location.calculate_local_consumption()
@@ -51,14 +49,16 @@ class TestLocation:
         self, location, producer
     ):
         input_df = create_df_with_constant_values()
-        producer.historic_load_data = HistoricLoadData(df=input_df)
+        producer.market_location.historic_load_data = HistoricLoadData(df=input_df)
         location.producers.append(producer)
         location.residual_short.historic_load_data = HistoricLoadData(
             df=create_df_with_constant_values(0)
         )
-        location.residual_long = Producer(
-            malo="MALO-PRODUCER-1", historic_load_data=HistoricLoadData(df=input_df)
-        )
+        location.residual_long = MarketLocation(
+                number="MALO-PRODUCER-1",
+                measurand=Measurand.NEGATIVE,
+                historic_load_data=HistoricLoadData(df=input_df)
+            )
         result = location.calculate_local_consumption()
         assert (result["value"] == 0).all() == True
 
@@ -71,19 +71,22 @@ class TestLocation:
         prediction_residual_short = next(
             p for p in location.predictions if p.type == PredictionType.RESIDUAL_SHORT
         )
-        assert_frame_equal(prediction_residual_short.df, input_df)
+
+        mask = (input_df.index.date >= location.settings.active_from) & (
+                    input_df.index.date < location.settings.active_until if location.settings.active_until else True)
+        assert_frame_equal(prediction_residual_short.df, input_df[mask])
 
     def test_delete_oldest_predictions(self, location: Location):
         oldest = Prediction(
             df=create_df_with_constant_values(),
             type=PredictionType.CONSUMPTION,
-            updated=datetime.datetime(2024, 1, 1),
+            created=datetime.datetime(2024, 1, 1),
         )
         location.predictions.append(oldest)
         newest = Prediction(
             df=create_df_with_constant_values(),
             type=PredictionType.CONSUMPTION,
-            updated=datetime.datetime(2024, 1, 2),
+            created=datetime.datetime(2024, 1, 2),
         )
         location.predictions.append(newest)
 
@@ -95,17 +98,17 @@ class TestLocation:
         consumption_prediction = Prediction(
             df=create_df_with_constant_values(),
             type=PredictionType.CONSUMPTION,
-            updated=datetime.datetime(2024, 1, 1),
+            created=datetime.datetime(2024, 1, 1),
         )
         consumption_prediction_2 = Prediction(
             df=create_df_with_constant_values(),
             type=PredictionType.CONSUMPTION,
-            updated=datetime.datetime(2024, 1, 2),
+            created=datetime.datetime(2024, 1, 2),
         )
         production_prediction = Prediction(
             df=create_df_with_constant_values(),
             type=PredictionType.PRODUCTION,
-            updated=datetime.datetime(2024, 1, 2),
+            created=datetime.datetime(2024, 1, 2),
         )
         location.predictions.append(consumption_prediction)
         location.predictions.append(consumption_prediction_2)
@@ -119,12 +122,12 @@ class TestLocation:
         consumption_prediction = Prediction(
             df=create_df_with_constant_values(),
             type=PredictionType.CONSUMPTION,
-            updated=datetime.datetime(2024, 1, 1),
+            created=datetime.datetime(2024, 1, 1),
         )
         production_prediction = Prediction(
             df=create_df_with_constant_values(),
             type=PredictionType.PRODUCTION,
-            updated=datetime.datetime(2024, 1, 2),
+            created=datetime.datetime(2024, 1, 2),
         )
         location.predictions.append(consumption_prediction)
         location.predictions.append(production_prediction)
