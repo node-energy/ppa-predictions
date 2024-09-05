@@ -1,14 +1,20 @@
 import datetime as dt
 import pandas as pd
+from pandas._testing import assert_frame_equal
+from pandera.typing import DataFrame
 
 from src import enums
+from src.enums import PredictionReceiver
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import MemoryUnitOfWork
 from src.services.load_data_exchange.common import AbstractLoadDataRetriever
 from src.services.data_sender import DataSender
 from src.domain import commands
 from src.domain import model
-from src.utils.timezone import TIMEZONE_BERLIN
+from src.utils.dataframe_schemas import IetEigenverbrauchSchema
+from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
+from tests.factories import LocationFactory, ProducerFactory, PredictionFactory
+from tests.fakes import FakeEmailSender, FakeIetDataSender
 from tests.unit.conftest import random_malo
 
 
@@ -121,3 +127,73 @@ class TestPrediction:
             state=enums.State.BERLIN,
             residual_short=model.MarketLocation(number=random_malo(), measurand=enums.Measurand.POSITIVE),
         )
+
+
+class TestSendPredictions:
+    def test_send_eigenverbrauch_predictions_to_impuls_energy_trading(self):
+        # ARRANGE
+        bus = setup_test()
+
+        location_1 = LocationFactory.build(
+            producers=[
+                ProducerFactory.build(prognosis_data_retriever=enums.DataRetriever.IMPULS_ENERGY_TRADING_SFTP)
+            ],
+            predictions=[
+                PredictionFactory.build(
+                    type=enums.PredictionType.CONSUMPTION,
+                    receivers=[PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT]
+                )
+            ]
+        )
+        location_2 = LocationFactory.build(
+            producers=[
+                ProducerFactory.build(prognosis_data_retriever=enums.DataRetriever.IMPULS_ENERGY_TRADING_SFTP)
+            ],
+            predictions=[
+                PredictionFactory.build(
+                    type=enums.PredictionType.CONSUMPTION,
+                    receivers=[PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT]
+                )
+            ]
+        )
+        # not applicable for impuls energy trading
+        location_3 = LocationFactory.build(
+            producers=[
+                ProducerFactory.build(prognosis_data_retriever=enums.DataRetriever.ENERCAST_SFTP)
+            ],
+            predictions=[
+                PredictionFactory.build(
+                    type=enums.PredictionType.CONSUMPTION,
+                    receivers=[PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT]
+                )
+            ]
+        )
+        with bus.uow as uow:
+            uow.locations.add(location_1)
+            uow.locations.add(location_2)
+            uow.locations.add(location_3)
+            uow.commit()
+
+        # ACT
+        bus.handle(commands.SendAllEigenverbrauchsPredictions())
+
+        # ASSERT
+        assert_frame_equal(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data[0], DataFrame[IetEigenverbrauchSchema](
+                index=pd.DatetimeIndex(
+                    data=pd.date_range(
+                        start=location_1.predictions[0].df.index[0].astimezone(TIMEZONE_UTC),
+                        end=location_1.predictions[0].df.index[-1].astimezone(TIMEZONE_UTC),
+                        freq="15min",
+                    ),
+                    name="#timestamp",
+                ),
+                data={
+                    f"{location_1.id}": (location_1.predictions[0].df["value"] / 1000).round(3),
+                    f"{location_2.id}": (location_2.predictions[0].df["value"] / 1000).round(3),
+                }
+            )
+        )
+
+        with bus.uow as uow:
+            for id_ in [location_1.id, location_2.id]:
+                assert uow.locations.get(id_).predictions[0].receivers == [PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT, PredictionReceiver.IMPULS_ENERGY_TRADING]

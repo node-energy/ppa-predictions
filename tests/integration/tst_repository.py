@@ -1,11 +1,13 @@
 import datetime as dt
-import pandas as pd
 import uuid
-from src.persistence.repository import LocationRepository
-from src.persistence.sqlalchemy import Location as DBLocation
-from src.domain.model import Consumer, HistoricLoadData, Location, Prediction, Producer, LocationSettings, \
+
+import pandas as pd
+
+from src.domain.model import HistoricLoadData, Location, Prediction, Producer, LocationSettings, \
     MarketLocation
 from src.enums import PredictionType, State, Measurand, DataRetriever
+from src.persistence.repository import LocationRepository
+from src.persistence.sqlalchemy import Location as DBLocation
 
 
 def create_df_with_constant_values(value=42):
@@ -20,6 +22,7 @@ def create_df_with_constant_values(value=42):
 
 class TestLocationRepository:
     def test_get_location_by_id(self, sqlite_session_factory):
+        # TODO test does not work anymore with sqlite database because model.Prediction has an ARRAY field now which is not supported by sqlite
         session = sqlite_session_factory()
         repo = LocationRepository(session=session, db_cls=DBLocation)
         settings = LocationSettings(
