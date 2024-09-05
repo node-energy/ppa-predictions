@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from src.config import settings
-from src.domain.model import State
+from src.enums import State
 from src.main import app
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
@@ -43,39 +43,49 @@ class TestLocation:
         json = {
             "state": State.berlin.value,
             "alias": "New Location",
-            "residual_short": {"malo": "malo-1"},
-            "settings": {"active_from": "2024-01-01T00:00:00", "active_until": None},
+            "residual_short": {"number": "market_location-1"},
+            "residual_long": {"number": "market_location-2"},
+            "producers": [
+                {
+                    "market_location": {
+                        "number": "market_location-3"
+                    },
+                    "prognosis_data_retriever": "impuls_energy_trading_sftp"
+                }
+            ],
+            "settings": {"active_from": "2024-01-01", "active_until": None},
         }
 
         response = client.post("/locations/", json=json)
         assert response.status_code == 200
+        json["producers"][0].update({"id": response.json()["producers"][0]["id"]})
         assert json.items() <= response.json().items()
 
     def test_update_location_settings(self, bus, setup_database):
         json = {
             "state": State.berlin.value,
             "alias": "New Location",
-            "residual_short": {"malo": "malo-1"},
-            "settings": {"active_from": "2024-01-01T00:00:00", "active_until": None},
+            "residual_short": {"number": "market_location-1"},
+            "settings": {"active_from": "2024-01-01", "active_until": None},
         }
 
         post_response = client.post("/locations/", json=json)
 
         location_id = post_response.json()["id"]
-        json = {"active_from": "2024-01-01T00:00:00", "active_until": "2024-01-10T00:00:00"}
+        json = {"active_from": "2024-01-01", "active_until": "2024-01-10"}
         response = client.put(f"/locations/{location_id}/settings", json=json)
         assert response.status_code == 200
-        assert response.json()["settings"]["active_until"] == "2024-01-10T00:00:00"
+        assert response.json()["settings"]["active_until"] == "2024-01-10"
 
     def test_get_locations(self, bus, setup_database):
-        client.post("/locations/", json={"state": State.berlin, "alias": "Location-1", "residual_short": {"malo": "malo-1"}, "settings": {"active_from": "2024-01-01 00:00"}})
-        client.post("/locations/", json={"state": State.berlin, "alias": "Location-2", "residual_short": {"malo": "malo-2"}, "settings": {"active_from": "2024-01-01 00:00"}})
+        client.post("/locations/", json={"state": State.berlin, "alias": "Location-1", "residual_short": {"number": "market_location-1"}, "settings": {"active_from": "2024-01-01"}})
+        client.post("/locations/", json={"state": State.berlin, "alias": "Location-2", "residual_short": {"number": "market_location-2"}, "settings": {"active_from": "2024-01-01"}})
         response = client.get("/locations/")
         assert response.status_code == 200
         assert response.json()["total"] == 2
 
     def test_get_location(self, bus, setup_database):
-        json = {"state": State.berlin.value, "alias": "Location-1", "residual_short": {"malo": "malo-1"}, "settings": {"active_from": "2024-01-01T00:00:00", "active_until": None}}
+        json = {"state": State.berlin.value, "alias": "Location-1", "residual_short": {"number": "market_location-1"}, "settings": {"active_from": "2024-01-01", "active_until": None}}
         post_response = client.post("/locations/", json=json)
         location_id = post_response.json()["id"]
         response = client.get(f"/locations/{location_id}/")

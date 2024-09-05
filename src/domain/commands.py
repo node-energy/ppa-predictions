@@ -1,7 +1,7 @@
 from datetime import datetime, date
 from dataclasses import dataclass
 from typing import Literal, Optional
-from src.domain.model import State
+from src.enums import DataRetriever, State
 
 
 class Command:
@@ -34,7 +34,7 @@ class CreateLocation(Command):
     alias: Optional[str]
     residual_short_malo: str
     residual_long_malo: Optional[str]
-    producer_malos: Optional[list[str]]
+    producers: Optional[list[dict[str, str | DataRetriever]]]
     settings_active_from: date
     settings_active_until: Optional[date]
 
@@ -42,8 +42,8 @@ class CreateLocation(Command):
 @dataclass
 class UpdateLocationSettings(Command):
     location_id: str
-    settings_active_from: datetime
-    settings_active_until: Optional[datetime]
+    settings_active_from: date
+    settings_active_until: Optional[date]
 
 
 @dataclass

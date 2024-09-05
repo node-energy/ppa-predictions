@@ -2,8 +2,12 @@ import io
 import pandas as pd
 from abc import ABC, abstractmethod
 from typing import Any, List, Type, TypeVar, Generic
+
+import src.enums
 from src.domain import model
 from sqlalchemy.orm import Session
+
+from src.enums import Measurand, DataRetriever, ComponentType, PredictionType
 from src.persistence.sqlalchemy import Base as DBBase, LocationSettings
 from src.persistence.sqlalchemy import (
     Location as DBLocation,
@@ -11,6 +15,7 @@ from src.persistence.sqlalchemy import (
     HistoricLoadData as DBHistoricLoadData,
     Prediction as DBPrediction,
     LocationSettings as DBLocationSettings,
+    MarketLocation as DBMarketLocation,
 )
 
 
@@ -148,7 +153,7 @@ class LocationRepository(
     def db_to_domain(self, db_obj: DBLocation) -> model.Location:
         def settings_to_domain(
             db_setting: DBLocationSettings,
-        ) -> model.LocationSettings:
+        ) -> model.LocationSettings | None:
             if db_setting is None:
                 return None
             return model.LocationSettings(
@@ -158,51 +163,62 @@ class LocationRepository(
 
         def historic_load_data_to_domain(
             db_hld: DBHistoricLoadData,
-        ) -> model.HistoricLoadData:
+        ) -> model.HistoricLoadData | None:
             if db_hld is None:
                 return None
             f = io.BytesIO(db_hld.dataframe)
-            return model.HistoricLoadData(id=db_hld.id, df=pd.read_pickle(f))
+            return model.HistoricLoadData(
+                id=db_hld.id,
+                created=db_hld.created_at,
+                df=pd.read_pickle(f)
+            )
 
-        def component_to_domain(db_component: DBComponent) -> model.Component:
+        def market_location_to_domain(db_market_location: DBMarketLocation) -> model.MarketLocation | None:
+            if db_market_location is None:
+                return None
+            return model.MarketLocation(
+                id=db_market_location.id,
+                number=db_market_location.number,
+                measurand=Measurand(db_market_location.metering_direction),
+                historic_load_data=historic_load_data_to_domain(
+                    db_market_location.historic_load_data
+                ),
+            )
+
+        def component_to_domain(db_component: DBComponent) -> model.Component | None:
             if db_component is None:
                 return None
-            if db_component.type == "consumer":
+            if db_component.type == ComponentType.CONSUMER.value:
                 return model.Consumer(
                     id=db_component.id,
-                    malo=db_component.malo,
-                    historic_load_data=historic_load_data_to_domain(
-                        db_component.historic_load_data
-                    ),
+                    market_location=market_location_to_domain(db_component.market_location),
                 )
             else:
                 return model.Producer(
                     id=db_component.id,
-                    malo=db_component.malo,
-                    historic_load_data=historic_load_data_to_domain(
-                        db_component.historic_load_data
-                    ),
+                    market_location=market_location_to_domain(db_component.market_location),
+                    prognosis_data_retriever=DataRetriever(db_component.prognosis_data_retriever),
                 )
 
-        def prediction_to_domain(db_prediction: DBPrediction) -> model.Prediction:
+        def prediction_to_domain(db_prediction: DBPrediction) -> model.Prediction | None:
             if db_prediction is None:
                 return None
             f = io.BytesIO(db_prediction.dataframe)
             return model.Prediction(
                 id=db_prediction.id,
                 created=db_prediction.created_at,
-                type=db_prediction.type,
+                type=PredictionType(db_prediction.type),
                 df=pd.read_pickle(f)
             )
 
-        state = model.State(db_obj.state)
+        state = src.enums.State(db_obj.state)
         return model.Location(
             id=db_obj.id,
             settings=settings_to_domain(db_obj.settings),
             state=state,
             alias=db_obj.alias,
-            residual_short=component_to_domain(db_obj.residual_short),
-            residual_long=component_to_domain(db_obj.residual_long),
+            residual_short=market_location_to_domain(db_obj.residual_short),
+            residual_long=market_location_to_domain(db_obj.residual_long),
             producers=[component_to_domain(p) for p in db_obj.producers],
             predictions=[prediction_to_domain(p) for p in db_obj.predictions],
         )
@@ -210,7 +226,7 @@ class LocationRepository(
     def domain_to_db(self, domain_obj: model.Location) -> DBLocation:
         def settings_to_db(
             domain_id: str, settings: model.LocationSettings
-        ) -> DBLocationSettings:
+        ) -> DBLocationSettings | None:
             if settings is None:
                 return None
             # recreate value object
@@ -222,7 +238,7 @@ class LocationRepository(
                 active_until=settings.active_until,
             )
 
-        def historic_load_data_to_db(hld: model.HistoricLoadData) -> DBHistoricLoadData:
+        def historic_load_data_to_db(hld: model.HistoricLoadData) -> DBHistoricLoadData | None:
             if hld is None:
                 return None
             f = io.BytesIO()
@@ -230,38 +246,44 @@ class LocationRepository(
             f.seek(0)
             return DBHistoricLoadData(id=hld.id, dataframe=f.read())
 
-        def component_to_db(component: model.Component) -> DBComponent:
+        def market_location_to_db(malo: model.MarketLocation) -> DBMarketLocation | None:
+            if malo is None:
+                return None
+            return DBMarketLocation(
+                id=malo.id,
+                number=malo.number,
+                metering_direction=malo.measurand.value,
+                historic_load_data=historic_load_data_to_db(malo.historic_load_data),
+            )
+
+        def component_to_db(component: model.Component) -> DBComponent | None:
             if component is None:
                 return None
-            type = "producer" if isinstance(component, model.Producer) else "consumer"
+            type = ComponentType.PRODUCER.value if isinstance(component, model.Producer) else ComponentType.CONSUMER.value
             return DBComponent(
                 id=component.id,
                 type=type,
-                malo=component.malo,
-                historic_load_data=historic_load_data_to_db(
-                    component.historic_load_data
-                ),
+                market_location=market_location_to_db(component.market_location),
+                prognosis_data_retriever=component.prognosis_data_retriever.value if hasattr(component, "prognosis_data_retriever") else None,
             )
 
-        def prediction_to_db(prediction: model.Prediction) -> DBPrediction:
+        def prediction_to_db(prediction: model.Prediction) -> DBPrediction | None:
             if prediction is None:
                 return None
             f = io.BytesIO()
             prediction.df.to_pickle(f)
             f.seek(0)
             return DBPrediction(
-                id=prediction.id, type=prediction.type, dataframe=f.read()
+                id=prediction.id, type=prediction.type.value, dataframe=f.read()
             )
 
-        residual_short_db = component_to_db(domain_obj.residual_short)
-        residual_short_db.residual_short_location_id = domain_obj.id
         return DBLocation(
             id=domain_obj.id,
             settings=settings_to_db(domain_obj.id, domain_obj.settings),
             state=domain_obj.state.value,
             alias=domain_obj.alias,
-            residual_short=component_to_db(domain_obj.residual_short),
-            residual_long=component_to_db(domain_obj.residual_long),
+            residual_short=market_location_to_db(domain_obj.residual_short),
+            residual_long=market_location_to_db(domain_obj.residual_long),
             producers=[component_to_db(p) for p in domain_obj.producers],
             predictions=[prediction_to_db(p) for p in domain_obj.predictions],
         )
