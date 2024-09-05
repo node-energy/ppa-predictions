@@ -46,6 +46,7 @@ class PredictionFactory(factory.alchemy.SQLAlchemyModelFactory):
         index=INDEX,
         data={"value": [round(random.random() * 100, 3) for _ in range(len(INDEX))]}
     )
+    receivers = []
 
 
 class MarketLocationFactory(factory.alchemy.SQLAlchemyModelFactory):

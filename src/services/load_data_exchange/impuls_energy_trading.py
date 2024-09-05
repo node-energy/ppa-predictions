@@ -49,7 +49,9 @@ class IetSftpClient(SftpMixin):
             file_objs.append(file_obj)
         return file_objs
 
-    def upload_own_consumption_file(self, file_obj: io.BytesIO):
+    def upload_eigenverbrauch(self, file_obj: io.BytesIO):
+        if not settings.send_predictions_enabled:
+            return
         try:
             self._open_sftp()
             self._sftp.chdir("/Eigenverbrauch")

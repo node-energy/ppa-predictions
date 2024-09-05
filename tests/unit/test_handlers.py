@@ -175,7 +175,7 @@ class TestSendPredictions:
             uow.commit()
 
         # ACT
-        bus.handle(commands.SendAllEigenverbrauchsPredictions())
+        bus.handle(commands.SendAllEigenverbrauchsPredictionsToImpuls())
 
         # ASSERT
         assert_frame_equal(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data[0], DataFrame[IetEigenverbrauchSchema](
@@ -197,3 +197,44 @@ class TestSendPredictions:
         with bus.uow as uow:
             for id_ in [location_1.id, location_2.id]:
                 assert uow.locations.get(id_).predictions[0].receivers == [PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT, PredictionReceiver.IMPULS_ENERGY_TRADING]
+
+    def test_enforce_sending_eigenverbrauch_predictions_to_impuls_energy_trading(self):
+        # ARRANGE
+        bus = setup_test()
+
+        location = LocationFactory.build(
+            producers=[
+                ProducerFactory.build(prognosis_data_retriever=enums.DataRetriever.IMPULS_ENERGY_TRADING_SFTP)
+            ],
+            predictions=[
+                PredictionFactory.build(
+                    type=enums.PredictionType.CONSUMPTION,
+                )
+            ]
+        )
+        with bus.uow as uow:
+            uow.locations.add(location)
+
+        # ACT
+        bus.handle(commands.SendAllEigenverbrauchsPredictionsToImpuls(
+            send_even_if_not_sent_to_internal_fahrplanmanagement=True
+        ))
+
+        # ASSERT
+        assert_frame_equal(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data[0], DataFrame[IetEigenverbrauchSchema](
+                index=pd.DatetimeIndex(
+                    data=pd.date_range(
+                        start=location.predictions[0].df.index[0].astimezone(TIMEZONE_UTC),
+                        end=location.predictions[0].df.index[-1].astimezone(TIMEZONE_UTC),
+                        freq="15min",
+                    ),
+                    name="#timestamp",
+                ),
+                data={
+                    f"{location.id}": (location.predictions[0].df["value"] / 1000).round(3),
+                }
+            )
+        )
+
+        with bus.uow as uow:
+            assert uow.locations.get(location.id).predictions[0].receivers == [PredictionReceiver.IMPULS_ENERGY_TRADING]

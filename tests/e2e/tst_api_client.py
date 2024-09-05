@@ -103,7 +103,6 @@ class TestLocation:
         # todo
 
     def test_send_eigenverbrauch_predictions(self, bus, setup_database):
-        settings.send_predictions_enabled = True
         # ARRANGE
         location = LocationFactory.build(
             producers=[
@@ -120,8 +119,37 @@ class TestLocation:
             uow.locations.add(location)
             uow.commit()
         # ACT
-        response = client.post("/locations/send_eigenverbrauchs_predictions_impuls/")
+        response = client.post(
+            "/locations/send_eigenverbrauchs_predictions_impuls/",
+            json={}
+        )
 
         # ASSERT
         assert response.status_code == 202
         assert len(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data) == 1
+
+    def test_enforce_sending_eigenverbrauch_predictions(self, bus, setup_database):
+        # ARRANGE
+        location = LocationFactory.build(
+            producers=[
+                ProducerFactory.build(prognosis_data_retriever=enums.DataRetriever.IMPULS_ENERGY_TRADING_SFTP)
+            ],
+            predictions=[
+                PredictionFactory.build(
+                    type=enums.PredictionType.CONSUMPTION,
+                )
+            ]
+        )
+        with bus.uow as uow:
+            uow.locations.add(location)
+            uow.commit()
+        # ACT
+        response = client.post(
+            "/locations/send_eigenverbrauchs_predictions_impuls/",
+            json={"send_even_if_not_sent_to_internal_fahrplanmanagement": True}
+        )
+
+        # ASSERT
+        assert response.status_code == 202
+        assert len(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data) == 1
+

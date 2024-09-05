@@ -66,6 +66,10 @@ class Location(BaseModel):
         )
 
 
+class SendEigenverbrauchPredictionToImpulsConfig(BaseModel):
+    send_even_if_not_sent_to_internal_fahrplanmanagement: Optional[bool] = None
+
+
 @router.get("/")
 def get_locations(bus: Annotated[MessageBus, Depends(get_bus)]):
     with bus.uow as uow:
@@ -214,6 +218,11 @@ def send_updated_predictions_for_all(bus: Annotated[MessageBus, Depends(get_bus)
 
 
 @router.post("/send_eigenverbrauchs_predictions_impuls")
-def send_all_eigenverbrauch_predictions_to_impuls_energy_trading(bus: Annotated[MessageBus, Depends(get_bus)]):
-    bus.handle(commands.SendAllEigenverbrauchsPredictions())
+def send_all_eigenverbrauch_predictions_to_impuls_energy_trading(
+    bus: Annotated[MessageBus, Depends(get_bus)],
+    fa_send_eigenverbrauch_prediction_to_impuls_config: SendEigenverbrauchPredictionToImpulsConfig
+):
+    bus.handle(commands.SendAllEigenverbrauchsPredictionsToImpuls(
+        fa_send_eigenverbrauch_prediction_to_impuls_config.send_even_if_not_sent_to_internal_fahrplanmanagement
+    ))
     return Response(status_code=status.HTTP_202_ACCEPTED)

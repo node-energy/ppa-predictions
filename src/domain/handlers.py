@@ -47,7 +47,7 @@ def update_and_predict_all(
                 commands.SendPredictions(location_id=str(location.id)), uow, dts
             )
         send_eigenverbrauchs_predictions_to_impuls_energy_trading(
-            commands.SendAllEigenverbrauchsPredictions(), uow, dts
+            commands.SendAllEigenverbrauchsPredictionsToImpuls(), uow, dts
         )
 
 
@@ -206,22 +206,23 @@ def send_predictions(
 
 
 def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
-    _: commands.SendAllEigenverbrauchsPredictions,
+    cmd: commands.SendAllEigenverbrauchsPredictionsToImpuls,
     uow: unit_of_work.AbstractUnitOfWork,
     dts: data_sender.AbstractDataSender
 ):
-    # this is annoying for testing, check should happen later, just before sending the data
-    # if not settings.send_predictions_enabled:
-    #     return
     eigenverbrauchs_predictions: [DataFrame[TimeSeriesSchema]] = []
     with uow:
         locations: [model.Location] = uow.locations.get_all()
         for location in locations:
             if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
                 continue
-            # maybe command can have optional parameter to enforce sending of predictions even if they where not sent to internal fahrplanmanagement
+            if cmd.send_even_if_not_sent_to_internal_fahrplanmanagement:
+                mandatory_previous_receivers = None
+            else:
+                mandatory_previous_receivers = enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+
             eigenverbrauch_prediction = location.get_most_recent_prediction(
-                prediction_type=PredictionType.CONSUMPTION, receivers_contains=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+                prediction_type=PredictionType.CONSUMPTION, receivers_contains=mandatory_previous_receivers
             )
             if eigenverbrauch_prediction is None or not eigenverbrauch_prediction.covers_prediction_horizon(reference_date=datetime.date.today()):
                 # TODO send errors to sentry! maybe more specific error messages depending on the reason
@@ -312,5 +313,5 @@ COMMAND_HANDLERS = {
     commands.CalculatePredictions: calculate_predictions,
     commands.SendPredictions: send_predictions,
     commands.UpdatePredictAll: update_and_predict_all,
-    commands.SendAllEigenverbrauchsPredictions: send_eigenverbrauchs_predictions_to_impuls_energy_trading,
+    commands.SendAllEigenverbrauchsPredictionsToImpuls: send_eigenverbrauchs_predictions_to_impuls_energy_trading,
 }
