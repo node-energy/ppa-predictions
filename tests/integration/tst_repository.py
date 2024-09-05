@@ -21,9 +21,8 @@ def create_df_with_constant_values(value=42):
 
 
 class TestLocationRepository:
-    def test_get_location_by_id(self, sqlite_session_factory):
-        # TODO test does not work anymore with sqlite database because model.Prediction has an ARRAY field now which is not supported by sqlite
-        session = sqlite_session_factory()
+    def test_get_location_by_id(self, session_factory):
+        session = session_factory()
         repo = LocationRepository(session=session, db_cls=DBLocation)
         settings = LocationSettings(
             active_from=dt.date(2024, 1, 1),
