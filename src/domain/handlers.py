@@ -191,15 +191,15 @@ def send_predictions(
                 src.enums.PredictionType.RESIDUAL_SHORT
             )
             if short_prediction:
-                saved = dts.send_to_internal_fahrplanmanagement(short_prediction, malo=location.residual_short.number, recipient=settings.mail_recipient_cons)
-                if saved and datetime.datetime.now(tz=TIMEZONE_BERLIN) <= GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT:
+                successful = dts.send_to_internal_fahrplanmanagement(short_prediction, malo=location.residual_short.number, recipient=settings.mail_recipient_cons)
+                if successful and datetime.datetime.now(tz=TIMEZONE_BERLIN) <= GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT:
                     short_prediction.receivers.append(enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
             long_prediction = location.get_most_recent_prediction(
                 src.enums.PredictionType.RESIDUAL_LONG
             )
             if short_prediction and datetime.datetime.now(tz=TIMEZONE_BERLIN) <= GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT:
-                saved = dts.send_to_internal_fahrplanmanagement(long_prediction, malo=location.residual_long.number, recipient=settings.mail_recipient_prod)
-                if saved:
+                successful = dts.send_to_internal_fahrplanmanagement(long_prediction, malo=location.residual_long.number, recipient=settings.mail_recipient_prod)
+                if successful and datetime.datetime.now(tz=TIMEZONE_BERLIN) <= GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT:
                     long_prediction.receivers.append(enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
             uow.locations.update(location)
             uow.commit()
