@@ -18,7 +18,7 @@ from src.persistence.sqlalchemy import (
     MarketLocation as DBMarketLocation,
     PredictionShipment as DBPredictionShipment,
 )
-
+from src.utils.timezone import TIMEZONE_UTC
 
 T = TypeVar("T")
 
@@ -170,7 +170,7 @@ class LocationRepository(
             f = io.BytesIO(db_hld.dataframe)
             return model.HistoricLoadData(
                 id=db_hld.id,
-                created=db_hld.created_at,
+                created=db_hld.created_at.replace(tzinfo=TIMEZONE_UTC),
                 df=pd.read_pickle(f)
             )
 
@@ -207,7 +207,7 @@ class LocationRepository(
             f = io.BytesIO(db_prediction.dataframe)
             return model.Prediction(
                 id=db_prediction.id,
-                created=db_prediction.created_at,
+                created=db_prediction.created_at.replace(tzinfo=TIMEZONE_UTC),
                 type=PredictionType(db_prediction.type),
                 df=pd.read_pickle(f),
                 shipments=[
@@ -218,7 +218,7 @@ class LocationRepository(
         def prediction_shipment_to_domain(db_prediction_shipment: DBPredictionShipment) -> model.PredictionShipment:
             return model.PredictionShipment(
                 id=db_prediction_shipment.id,
-                created=db_prediction_shipment.created_at,
+                created=db_prediction_shipment.created_at.replace(tzinfo=TIMEZONE_UTC),
                 receiver=PredictionReceiver(db_prediction_shipment.receiver)
             )
 

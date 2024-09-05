@@ -1,16 +1,16 @@
 from __future__ import annotations
 from uuid import UUID
-from datetime import datetime, date, timezone
+from datetime import datetime, date
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
-from sqlalchemy import DateTime, Date, ForeignKey, PickleType, UniqueConstraint, Column
+from sqlalchemy import DateTime, Date, ForeignKey, PickleType, UniqueConstraint
 from typing import Optional
 
-from sqlalchemy.sql.sqltypes import ARRAY, String
+from src.utils.timezone import TIMEZONE_UTC
 
 
 class Base(DeclarativeBase):
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(timezone.utc)
+        DateTime, default=lambda: datetime.now(TIMEZONE_UTC)
     )
 
 

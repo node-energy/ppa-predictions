@@ -8,8 +8,7 @@ from typing import Optional
 from dataclasses import dataclass, field
 
 from src.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver
-from src.utils.timezone import TIMEZONE_BERLIN
-
+from src.utils.timezone import TIMEZONE_BERLIN, utc_now
 
 PROGNOSIS_HORIZON_DAYS = 7
 
@@ -177,7 +176,7 @@ class Consumer(Component, Entity):
 @dataclass(kw_only=True)
 class HistoricLoadData(Entity):
     __hash__ = Entity.__hash__
-    created: datetime = field(default_factory=datetime.now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
+    created: datetime = field(default_factory=utc_now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
     df: pd.DataFrame
 
     def __eq__(self, other):
@@ -190,7 +189,7 @@ class HistoricLoadData(Entity):
 @dataclass(kw_only=True)
 class Prediction(Entity):
     __hash__ = Entity.__hash__
-    created: datetime = field(default_factory=datetime.now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
+    created: datetime = field(default_factory=utc_now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
     df: pd.DataFrame
     type: PredictionType
     shipments: list[PredictionShipment] = field(default_factory=list)
@@ -209,7 +208,7 @@ class Prediction(Entity):
 
 @dataclass(kw_only=True)
 class PredictionShipment(Entity):
-    created: datetime = field(default_factory=datetime.now)
+    created: datetime = field(default_factory=utc_now)
     receiver: PredictionReceiver
 
     def __eq__(self, other):
