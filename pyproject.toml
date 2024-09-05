@@ -28,6 +28,7 @@ mako-utils = {version = "*", source = "node-energy"}
 factory-boy = "^3.3.0"
 paramiko = "^2.12.0"    # version constraint from optinode dependency
 pandera = "^0.20.3"
+sentry-sdk = {version = "^2.13.0", extras = ["fastapi"]}
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"

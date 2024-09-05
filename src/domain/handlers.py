@@ -225,7 +225,6 @@ def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
                 prediction_type=PredictionType.CONSUMPTION, receivers_contains=mandatory_previous_receivers
             )
             if eigenverbrauch_prediction is None or not eigenverbrauch_prediction.covers_prediction_horizon(reference_date=datetime.date.today()):
-                # TODO send errors to sentry! maybe more specific error messages depending on the reason
                 logger.error(f"Could not get valid eigenverbrauch prediction for location {location.alias}")
                 continue
             eigenverbrauch_prediction.receivers.append(enums.PredictionReceiver.IMPULS_ENERGY_TRADING)
