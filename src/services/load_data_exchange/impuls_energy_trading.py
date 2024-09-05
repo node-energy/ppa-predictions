@@ -121,7 +121,7 @@ def iet_generation_file_name_match(file_name: str) -> re.Match:
     return re.fullmatch(pattern, file_name)
 
 
-class IetSftpConsumptionDataSender(AbstractLoadDataSender):
+class IetSftpEigenverbrauchDataSender(AbstractLoadDataSender):
     def __init__(self, sftp_client: SftpUploadEigenverbrauch = IetSftpClient()):
         self.sftp_client = sftp_client
 

@@ -5,7 +5,7 @@ from src import enums
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import MemoryUnitOfWork
 from src.services.load_data_exchange.common import AbstractLoadDataRetriever
-from src.services.data_store import LocalDataStore
+from src.services.data_sender import DataSender
 from src.domain import commands
 from src.domain import model
 from src.utils.timezone import TIMEZONE_BERLIN
@@ -31,7 +31,11 @@ def setup_test():
     bus.setup(
         MemoryUnitOfWork(),
         FakeLoadDataReceiver(),
-        LocalDataStore(),
+        dts=DataSender(
+            fahrplanmanagement_sender=FakeEmailSender(),
+            impuls_energy_trading_eigenverbrauch_sender=FakeIetDataSender(),
+            impuls_energy_trading_residual_long_sender=FakeIetDataSender(),
+        ),
     )
     return bus
 

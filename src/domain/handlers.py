@@ -14,13 +14,12 @@ from src.domain import commands, events
 from src.domain import model
 from src.domain.model import MarketLocation
 from src.infrastructure import unit_of_work
-from src.services import predictor, data_store
+from src.services import predictor, data_sender
 from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP
 from src.utils.dataframe_schemas import IetEigenverbrauchSchema, TimeSeriesSchema
 from src.utils.external_schedules import GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
 from src.enums import Measurand, DataRetriever, PredictionType
-from src.services.load_data_exchange.common import AbstractLoadDataSender
 from src import enums
 
 logger = logging.getLogger(__name__)
@@ -34,8 +33,7 @@ def update_and_predict_all(
     _: commands.UpdatePredictAll,
     uow: unit_of_work.AbstractUnitOfWork,
     ldr: src.services.load_data_exchange.common.AbstractLoadDataRetriever,
-    dst: data_store.AbstractDataStore,
-    data_sender: AbstractLoadDataSender
+    dts: data_sender.AbstractDataSender,
 ):
     with uow:
         for location in uow.locations.get_all():
@@ -46,10 +44,10 @@ def update_and_predict_all(
                 commands.CalculatePredictions(location_id=str(location.id)), uow
             )
             send_predictions(
-                commands.SendPredictions(location_id=str(location.id)), uow, dst
+                commands.SendPredictions(location_id=str(location.id)), uow, dts
             )
         send_eigenverbrauchs_predictions_to_impuls_energy_trading(
-            commands.SendAllEigenverbrauchsPredictions(), uow, data_sender
+            commands.SendAllEigenverbrauchsPredictions(), uow, dts
         )
 
 
@@ -174,15 +172,15 @@ def calculate_predictions(
 def send_predictions_evt(
     evt: events.PredictionsCreated,
     uow: unit_of_work,
-    dst: data_store.AbstractDataStore,
+    dts: data_sender.AbstractDataSender,
 ):
-    send_predictions(commands.SendPredictions(location_id=evt.location_id), uow, dst)
+    send_predictions(commands.SendPredictions(location_id=evt.location_id), uow, dts)
 
 
 def send_predictions(
     cmd: commands.SendPredictions,
     uow: unit_of_work.AbstractUnitOfWork,
-    dst: data_store.AbstractDataStore,
+    dts: data_sender.AbstractDataSender,
 ):
     # this only sends data to internal fahrplanmanagement, because impuls requires one single file for all locations
     # so in case one location was updated, sending jobs for impuls must be triggered additionally
@@ -193,23 +191,24 @@ def send_predictions(
                 src.enums.PredictionType.RESIDUAL_SHORT
             )
             if short_prediction:
-                saved = dst.save_file(short_prediction, malo=location.residual_short.number, recipient=settings.mail_recipient_cons)
+                saved = dts.send_to_internal_fahrplanmanagement(short_prediction, malo=location.residual_short.number, recipient=settings.mail_recipient_cons)
                 if saved and datetime.datetime.now(tz=TIMEZONE_BERLIN) <= GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT:
                     short_prediction.receivers.append(enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
             long_prediction = location.get_most_recent_prediction(
                 src.enums.PredictionType.RESIDUAL_LONG
             )
             if short_prediction and datetime.datetime.now(tz=TIMEZONE_BERLIN) <= GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT:
-                saved = dst.save_file(long_prediction, malo=location.residual_long.number, recipient=settings.mail_recipient_prod)
+                saved = dts.send_to_internal_fahrplanmanagement(long_prediction, malo=location.residual_long.number, recipient=settings.mail_recipient_prod)
                 if saved:
                     long_prediction.receivers.append(enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
-            uow.commit()    # todo does this work as expected?
+            uow.locations.update(location)
+            uow.commit()
 
 
 def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
     _: commands.SendAllEigenverbrauchsPredictions,
     uow: unit_of_work.AbstractUnitOfWork,
-    data_sender: AbstractLoadDataSender
+    dts: data_sender.AbstractDataSender
 ):
     # this is annoying for testing, check should happen later, just before sending the data
     # if not settings.send_predictions_enabled:
@@ -229,6 +228,7 @@ def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
                 logger.error(f"Could not get valid eigenverbrauch prediction for location {location.alias}")
                 continue
             eigenverbrauch_prediction.receivers.append(enums.PredictionReceiver.IMPULS_ENERGY_TRADING)
+            uow.locations.update(location)
             df = eigenverbrauch_prediction.df.copy()
             TimeSeriesSchema.validate(df)
             df.columns = [str(location.id)]
@@ -239,7 +239,7 @@ def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
         df = df.div(1000)  # convert from kW to MW
         df = df.round(3)  # todo clarify for which unit the 3 digits rule applies
         df = DataFrame[IetEigenverbrauchSchema](df)
-        data_sender.send_data(df)
+        dts.send_eigenverbrauch_to_impuls_energy_trading(df)
         uow.commit()
 
 

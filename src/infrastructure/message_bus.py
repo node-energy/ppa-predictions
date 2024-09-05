@@ -6,7 +6,7 @@ import src.services.load_data_exchange.common
 from src.domain import events, commands
 from src.infrastructure import unit_of_work
 from src.domain.handlers import COMMAND_HANDLERS, EVENT_HANDLERS
-from src.services import data_store
+from src.services import data_sender
 
 Message = Union[commands.Command, events.Event]
 
@@ -31,14 +31,12 @@ class MessageBus:
         self,
         uow: unit_of_work.AbstractUnitOfWork,
         ldr: src.services.load_data_exchange.common.AbstractLoadDataRetriever,
-        dst: data_store.AbstractDataStore,
-        data_sender: src.services.load_data_exchange.common.AbstractLoadDataSender,
+        dts: data_sender.AbstractDataSender,
     ):
         self.uow = uow
         self.ldr = ldr
-        self.dst = dst
-        self.data_sender = data_sender
-        dependencies = {"uow": uow, "ldr": ldr, "dst": dst, "data_sender": data_sender}
+        self.dts = dts
+        dependencies = {"uow": uow, "ldr": ldr, "dts": dts}
         self.command_handlers = {
             command_type: inject_dependencies(handler, dependencies)
             for command_type, handler in COMMAND_HANDLERS.items()

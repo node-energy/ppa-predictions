@@ -17,6 +17,7 @@ from src.services.load_data_exchange.common import APILoadDataRetriever, Abstrac
 from src.services.data_store import LocalDataStore
 from src.utils.dataframe_schemas import IetEigenverbrauchSchema
 from src.utils.timezone import TIMEZONE_UTC
+from src.services.data_sender import DataSender
 from tests.factories import LocationFactory, PredictionFactory, ProducerFactory
 
 client = TestClient(app, headers={"X-Api-Key": settings.api_key})
@@ -37,8 +38,11 @@ def bus():
     bus.setup(
         uow=SqlAlchemyUnitOfWork(),
         ldr=APILoadDataRetriever(),
-        dst=LocalDataStore(),
-        data_sender=FakeIetSftpConsumptionDataSender(),
+        dts=DataSender(
+            fahrplanmanagement_sender=FakeEmailSender(),
+            impuls_energy_trading_eigenverbrauch_sender=FakeIetDataSender(),
+            impuls_energy_trading_residual_long_sender=FakeIetDataSender(),
+        ),
     )
     return bus
 

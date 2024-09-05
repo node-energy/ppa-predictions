@@ -10,7 +10,7 @@ from pandera.typing import DataFrame
 from src.enums import Measurand
 from src.services.load_data_exchange.optinode_database import OptinodeDataRetriever
 from src.services.load_data_exchange.impuls_energy_trading import IetSftpGenerationDataRetriever, \
-    IetSftpConsumptionDataSender
+    IetSftpEigenverbrauchDataSender
 from src.services.load_data_exchange.enercast import EnercastSftpDataRetriever
 from src.services.load_data_exchange.common import AbstractSftpClient
 from src.utils.dataframe_schemas import IetEigenverbrauchSchema
@@ -71,9 +71,9 @@ class TestIETSftpConsumptionDataSender:
             },
         )
         expected_bytes = b'#timestamp;asset-1;asset-2\n01.01.2021 00:00:00;1;5\n01.01.2021 00:15:00;2;4\n01.01.2021 00:30:00;3;3\n01.01.2021 00:45:00;4;2\n01.01.2021 01:00:00;5;1\n'
-        uploaded_bytes = IetSftpConsumptionDataSender(
+        uploaded_bytes = IetSftpEigenverbrauchDataSender(
             sftp_client=FakeIetSftpClient()
-        ).upload_eigenverbrauch(data)
+        ).send_data(data)
         assert uploaded_bytes == expected_bytes
 
 
