@@ -10,6 +10,7 @@ from pandera.typing import DataFrame
 from src.domain import model
 from src import enums
 from src.domain.model import PROGNOSIS_HORIZON_DAYS
+from src.enums import PredictionReceiver
 from src.utils.dataframe_schemas import TimeSeriesSchema
 from src.utils.timezone import TIMEZONE_BERLIN
 
@@ -37,6 +38,13 @@ class HistoricLoadDataFactory(factory.alchemy.SQLAlchemyModelFactory):
     )
 
 
+class PredictionShipmentFactory(factory.alchemy.SQLAlchemyModelFactory):
+    class Meta:
+        model = model.PredictionShipment
+
+    receiver = PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+
+
 class PredictionFactory(factory.alchemy.SQLAlchemyModelFactory):
     class Meta:
         model = model.Prediction
@@ -46,7 +54,7 @@ class PredictionFactory(factory.alchemy.SQLAlchemyModelFactory):
         index=INDEX,
         data={"value": [round(random.random() * 100, 3) for _ in range(len(INDEX))]}
     )
-    receivers = []
+    shipments = []
 
 
 class MarketLocationFactory(factory.alchemy.SQLAlchemyModelFactory):

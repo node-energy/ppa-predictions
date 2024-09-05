@@ -99,7 +99,21 @@ class Prediction(Base, UUIDMixin):
     location: Mapped[Location] = relationship(
         back_populates="predictions", foreign_keys=[location_id]
     )
-    receivers: Mapped[list[str]] = Column(ARRAY(String), server_default="{}")
+    shipments: Mapped[list[PredictionShipment]] = relationship(
+        back_populates="prediction",
+        foreign_keys="PredictionShipment.prediction_id",
+        cascade="all, delete-orphan",
+    )
+
+
+class PredictionShipment(Base, UUIDMixin):
+    __tablename__ = "predictionshipments"
+
+    prediction_id: Mapped[UUID] = mapped_column(ForeignKey("predictions.id"))
+    prediction: Mapped[Prediction] = relationship(
+        back_populates="shipments", foreign_keys=[prediction_id]
+    )
+    receiver: Mapped[str]
 
 
 class HistoricLoadData(Base, UUIDMixin):

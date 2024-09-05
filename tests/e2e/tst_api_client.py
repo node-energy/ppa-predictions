@@ -12,7 +12,7 @@ from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 from src.services.load_data_exchange.common import APILoadDataRetriever
 from src.services.data_sender import DataSender
-from tests.factories import LocationFactory, PredictionFactory, ProducerFactory
+from tests.factories import LocationFactory, PredictionFactory, ProducerFactory, PredictionShipmentFactory
 from tests.fakes import FakeEmailSender, FakeIetDataSender
 
 client = TestClient(app, headers={"X-Api-Key": settings.api_key})
@@ -111,7 +111,7 @@ class TestLocation:
             predictions=[
                 PredictionFactory.build(
                     type=enums.PredictionType.CONSUMPTION,
-                    receivers=[PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT]
+                    shipments=[PredictionShipmentFactory.build(receiver=PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)]
                 )
             ]
         )

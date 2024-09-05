@@ -16,6 +16,7 @@ from src.persistence.sqlalchemy import (
     Prediction as DBPrediction,
     LocationSettings as DBLocationSettings,
     MarketLocation as DBMarketLocation,
+    PredictionShipment as DBPredictionShipment,
 )
 
 
@@ -209,7 +210,16 @@ class LocationRepository(
                 created=db_prediction.created_at,
                 type=PredictionType(db_prediction.type),
                 df=pd.read_pickle(f),
-                receivers=[PredictionReceiver(r) for r in db_prediction.receivers],
+                shipments=[
+                    prediction_shipment_to_domain(s) for s in db_prediction.shipments
+                ],
+            )
+
+        def prediction_shipment_to_domain(db_prediction_shipment: DBPredictionShipment) -> model.PredictionShipment:
+            return model.PredictionShipment(
+                id=db_prediction_shipment.id,
+                created=db_prediction_shipment.created_at,
+                receiver=PredictionReceiver(db_prediction_shipment.receiver)
             )
 
         state = src.enums.State(db_obj.state)
@@ -278,7 +288,16 @@ class LocationRepository(
                 id=prediction.id,
                 type=prediction.type.value,
                 dataframe=f.read(),
-                receivers=[r.value for r in prediction.receivers],
+                shipments=[
+                    prediction_shipment_to_db(s) for s in prediction.shipments
+                ],
+            )
+
+        def prediction_shipment_to_db(prediction_shipment: model.PredictionShipment) -> DBPredictionShipment:
+            return DBPredictionShipment(
+                id=prediction_shipment.id,
+                created_at=prediction_shipment.created,
+                receiver=prediction_shipment.receiver.value
             )
 
         return DBLocation(

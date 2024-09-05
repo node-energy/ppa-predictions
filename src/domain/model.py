@@ -193,7 +193,7 @@ class Prediction(Entity):
     created: datetime = field(default_factory=datetime.now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
     df: pd.DataFrame
     type: PredictionType
-    receivers: list[PredictionReceiver] = field(default_factory=list)
+    shipments: list[PredictionShipment] = field(default_factory=list)
 
     def __eq__(self, other):
         return self.id == other.id
@@ -205,6 +205,18 @@ class Prediction(Entity):
         prediction_horizon_start = datetime.combine(reference_date + timedelta(days=1), time(0, 0), tzinfo=TIMEZONE_BERLIN)
         prediction_horizon_end = datetime.combine(prediction_horizon_start + timedelta(days=PROGNOSIS_HORIZON_DAYS), time(23, 45), tzinfo=TIMEZONE_BERLIN)
         return self.df.first_valid_index()<= prediction_horizon_start and self.df.last_valid_index() >= prediction_horizon_end
+
+
+@dataclass(kw_only=True)
+class PredictionShipment(Entity):
+    created: datetime = field(default_factory=datetime.now)
+    receiver: PredictionReceiver
+
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def __gt__(self, other: Prediction):
+        return self.created > other.created
 
 
 # value_object
