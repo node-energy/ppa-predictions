@@ -14,19 +14,14 @@ from src.enums import DataRetriever, State
 router = APIRouter(prefix="/locations")
 
 
-class ResidualShort(BaseModel):
-    id: Optional[uuid.UUID] = None
-    number: str
-
-
-class ResidualLong(BaseModel):
+class MarketLocation(BaseModel):
     id: Optional[uuid.UUID] = None
     number: str
 
 
 class Producer(BaseModel):
     id: Optional[uuid.UUID] = None
-    market_location: ResidualLong
+    market_location: MarketLocation
     prognosis_data_retriever: DataRetriever
 
 
@@ -39,8 +34,8 @@ class Location(BaseModel):
     id: Optional[uuid.UUID] = None
     state: str
     alias: Optional[str] = None
-    residual_short: ResidualShort
-    residual_long: Optional[ResidualLong] = None
+    residual_short: MarketLocation
+    residual_long: Optional[MarketLocation] = None
     producers: Optional[list[Producer]] = []
     settings: LocationSettings
 
@@ -50,12 +45,12 @@ class Location(BaseModel):
             state=location.state,
             alias=location.alias,
             id=location.id,
-            residual_short=ResidualShort(id=location.residual_short.id, number=location.residual_short.number),
-            residual_long=ResidualLong(id=location.residual_long.id, number=location.residual_long.number) if location.residual_long else None,
+            residual_short=MarketLocation(id=location.residual_short.id, number=location.residual_short.number),
+            residual_long=MarketLocation(id=location.residual_long.id, number=location.residual_long.number) if location.residual_long else None,
             producers=[
                 Producer(
                     id=p.id,
-                    market_location=ResidualLong(id=p.market_location.id, number=p.market_location.number),
+                    market_location=MarketLocation(id=p.market_location.id, number=p.market_location.number),
                     prognosis_data_retriever=DataRetriever(p.prognosis_data_retriever)
                 ) for p in location.producers
             ],
@@ -153,7 +148,7 @@ def update_location_settings(
                 id=str(new_location.id),
                 state=new_location.state,
                 alias=new_location.alias,
-                residual_short=ResidualShort(number=new_location.residual_short.number),
+                residual_short=MarketLocation(number=new_location.residual_short.number),
                 settings=LocationSettings(
                     active_from=new_location.settings.active_from,
                     active_until=new_location.settings.active_until,
