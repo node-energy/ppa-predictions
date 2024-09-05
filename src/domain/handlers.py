@@ -187,20 +187,20 @@ def send_predictions(
     if settings.send_predictions_enabled:
         with uow:
             location: model.Location = uow.locations.get(UUID(cmd.location_id))
-            short_prediction = location.get_most_recent_prediction(
-                src.enums.PredictionType.RESIDUAL_SHORT
-            )
+            short_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_SHORT)
             if short_prediction:
                 successful = dts.send_to_internal_fahrplanmanagement(short_prediction, malo=location.residual_short.number, recipient=settings.mail_recipient_cons)
-                if successful and datetime.datetime.now(tz=TIMEZONE_BERLIN) <= GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT:
-                    short_prediction.receivers.append(enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
-            long_prediction = location.get_most_recent_prediction(
-                src.enums.PredictionType.RESIDUAL_LONG
-            )
-            if short_prediction and datetime.datetime.now(tz=TIMEZONE_BERLIN) <= GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT:
+                if successful:
+                    short_prediction.shipments.append(
+                        model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+                    )
+            long_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_LONG)
+            if long_prediction:
                 successful = dts.send_to_internal_fahrplanmanagement(long_prediction, malo=location.residual_long.number, recipient=settings.mail_recipient_prod)
-                if successful and datetime.datetime.now(tz=TIMEZONE_BERLIN) <= GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT:
-                    long_prediction.receivers.append(enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+                if successful:
+                    long_prediction.shipments.append(
+                        model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+                    )
             uow.locations.update(location)
             uow.commit()
 
@@ -218,11 +218,15 @@ def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
                 continue
             if cmd.send_even_if_not_sent_to_internal_fahrplanmanagement:
                 mandatory_previous_receivers = None
+                sent_before = None
             else:
                 mandatory_previous_receivers = enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+                sent_before = GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
 
             eigenverbrauch_prediction = location.get_most_recent_prediction(
-                prediction_type=PredictionType.CONSUMPTION, receivers_contains=mandatory_previous_receivers
+                prediction_type=PredictionType.CONSUMPTION,
+                receiver=mandatory_previous_receivers,
+                sent_before=sent_before,
             )
             if eigenverbrauch_prediction is None or not eigenverbrauch_prediction.covers_prediction_horizon(reference_date=datetime.date.today()):
                 logger.error(f"Could not get valid eigenverbrauch prediction for location {location.alias}")

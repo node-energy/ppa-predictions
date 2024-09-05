@@ -61,11 +61,24 @@ class Location(AggregateRoot):
     def has_production(self):
         return self.producers and len(self.producers) > 0
 
-    def get_most_recent_prediction(self, prediction_type, receivers_contains=None) -> Optional[Prediction]:
+    def get_most_recent_prediction(self, prediction_type, receiver: Optional[PredictionReceiver]=None, sent_before: Optional[time] = None) -> Optional[Prediction]:
         sorted_predictions = sorted(self.predictions, reverse=True)
-        criteria = lambda p: p.type == prediction_type and (
-            receivers_contains in p.receivers if receivers_contains else True)
-        return next((p for p in sorted_predictions if criteria(p)), None)
+        if not sorted_predictions:
+            return None
+
+        for prediction in sorted_predictions:
+            if prediction.type != prediction_type:
+                continue
+            shipments = prediction.shipments
+            if receiver:
+                shipments = filter(lambda shipment: receiver == shipment.receiver, shipments)
+            if sent_before:
+                if sent_before.tzinfo is None:
+                    raise ValueError("<sent_before> must have a timezone")
+                shipments = filter(lambda shipment: shipment.created.astimezone(sent_before.tzinfo).time().replace(tzinfo=sent_before.tzinfo) < sent_before, shipments)
+            if any(shipments):
+                return prediction
+        return None
 
     def calculate_local_consumption(self):
         if not self.has_production:
