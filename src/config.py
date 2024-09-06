@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     update_cron: str = "45 10 * * *"
     send_predictions_enabled: bool = False
     api_key: str = "node"
-    enercast_ftp_username: str
-    enercast_ftp_pass: str
+    enercast_ftp_username: str = "dummy"
+    enercast_ftp_pass: str = 'dummy'
     enercast_ftp_host: str = "transfer.enercast.de"
     iet_sftp_username: str = "dummy"
     iet_sftp_pass: str = "dummy"
