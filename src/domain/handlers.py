@@ -213,38 +213,11 @@ def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
     uow: unit_of_work.AbstractUnitOfWork,
     dts: data_sender.AbstractDataSender
 ):
-    eigenverbrauchs_predictions: [DataFrame[TimeSeriesSchema]] = []
     with uow:
-        locations: [model.Location] = uow.locations.get_all()
-        for location in locations:
-            if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
-                continue
-            if cmd.send_even_if_not_sent_to_internal_fahrplanmanagement:
-                mandatory_previous_receivers = None
-                sent_before = None
-            else:
-                mandatory_previous_receivers = enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
-                sent_before = GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
-
-            eigenverbrauch_prediction = location.get_most_recent_prediction(
-                prediction_type=PredictionType.CONSUMPTION,
-                receiver=mandatory_previous_receivers,
-                sent_before=sent_before,
-            )
-            if eigenverbrauch_prediction is None or not eigenverbrauch_prediction.covers_prediction_horizon(reference_date=datetime.date.today()):
-                logger.error(f"Could not get valid eigenverbrauch prediction for location {location.alias}")
-                continue
-            eigenverbrauch_prediction.shipments.append(
-                PredictionShipment(
-                    receiver=enums.PredictionReceiver.IMPULS_ENERGY_TRADING
-                )
-            )
-            uow.locations.update(location)
-            df = eigenverbrauch_prediction.df.copy()
-            TimeSeriesSchema.validate(df)
-            df.columns = [str(location.id)]
-            eigenverbrauchs_predictions.append(df)
-        df = pd.concat(eigenverbrauchs_predictions, axis=1)
+        predictions = _get_predictions_for_impuls_energy_trading(
+            uow, PredictionType.CONSUMPTION, cmd.send_even_if_not_sent_to_internal_fahrplanmanagement
+        )
+        df = pd.concat(predictions, axis=1)
         df = df.tz_convert(TIMEZONE_UTC)
         df.index.name = "#timestamp"
         df = df.div(1000)  # convert from kW to MW
@@ -261,7 +234,10 @@ def send_residual_long_predictions_to_impuls_energy_trading(
 ):
     with uow:
         predictions_per_tso = _get_predictions_for_impuls_energy_trading(
-            uow, PredictionType.RESIDUAL_LONG, cmd.send_even_if_not_sent_to_internal_fahrplanmanagement
+            uow,
+            PredictionType.RESIDUAL_LONG,
+            cmd.send_even_if_not_sent_to_internal_fahrplanmanagement,
+            get_per_tso=True,
         )
         prediction_sum_per_tso = {}
         for tso, predictions in predictions_per_tso.items():
@@ -286,9 +262,11 @@ def send_residual_long_predictions_to_impuls_energy_trading(
 def _get_predictions_for_impuls_energy_trading(
     uow: unit_of_work.AbstractUnitOfWork,
     prediction_type: PredictionType,
-    send_even_if_not_sent_to_internal_fahrplanmanagement: bool = False
-) -> [DataFrame[TimeSeriesSchema]]:
+    send_even_if_not_sent_to_internal_fahrplanmanagement: bool = False,
+    get_per_tso: bool = False,
+) -> [DataFrame[TimeSeriesSchema]] | dict[TransmissionSystemOperator, [DataFrame[TimeSeriesSchema]]]:
     predictions_per_tso: dict[src.TransmissionSystemOperator, [DataFrame[TimeSeriesSchema]]] = defaultdict(list)
+    predictions: [DataFrame[TimeSeriesSchema]] = []
     locations: [model.Location] = uow.locations.get_all()
     for location in locations:
         if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
@@ -318,7 +296,10 @@ def _get_predictions_for_impuls_energy_trading(
         TimeSeriesSchema.validate(df)
         df.columns = [str(location.id)]
         predictions_per_tso[location.tso].append(df)
-    return predictions_per_tso
+        predictions.append(df)
+    if get_per_tso:
+        return predictions_per_tso
+    return predictions
 
 
 def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfWork):
