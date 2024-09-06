@@ -95,4 +95,3 @@ class LocationFactory(factory.alchemy.SQLAlchemyModelFactory):
         factory.SubFactory(ProducerFactory) for _ in range(1)
     ])
     settings = SubFactory(LocationSettingsFactory)
-    predictions = []

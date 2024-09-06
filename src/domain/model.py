@@ -63,13 +63,11 @@ class Location(AggregateRoot):
         return self.producers and len(self.producers) > 0
 
     def get_most_recent_prediction(self, prediction_type, receiver: Optional[PredictionReceiver]=None, sent_before: Optional[time] = None) -> Optional[Prediction]:
-        sorted_predictions = sorted(self.predictions, reverse=True)
-        if not sorted_predictions:
-            return None
+        sorted_predictions = (p for p in sorted(self.predictions, reverse=True) if p.type == prediction_type)
+        if not receiver and not sent_before:
+            return next(sorted_predictions, None)
 
         for prediction in sorted_predictions:
-            if prediction.type != prediction_type:
-                continue
             shipments = prediction.shipments
             if receiver:
                 shipments = filter(lambda shipment: receiver == shipment.receiver, shipments)

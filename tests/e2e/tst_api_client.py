@@ -159,7 +159,23 @@ class TestLocation:
         location_id = post_response.json()["id"]
         response = client.get(f"/locations/{location_id}/")
         assert response.status_code == 200
-        assert json.items() <= response.json().items()
+
+        expected_json = {
+            'id': location_id,
+            'state': 'BE',
+            'alias': 'Location-1',
+            'residual_short': {
+                'id': response.json()['residual_short']['id'],
+                'number': 'market_location-1'
+            },
+            'residual_long': None,
+            'producers': [],
+            'settings': {
+                'active_from': '2024-01-01',
+                'active_until': None
+            }
+        }
+        assert expected_json == response.json()
 
     def test_calculate_predictions(self, bus, setup_database):
         ...

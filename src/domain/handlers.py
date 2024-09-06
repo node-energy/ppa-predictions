@@ -14,7 +14,7 @@ import src.services.load_data_exchange.common
 from src.config import settings
 from src.domain import commands, events
 from src.domain import model
-from src.domain.model import MarketLocation
+from src.domain.model import MarketLocation, PredictionShipment
 from src.infrastructure import unit_of_work
 from src.services import predictor, data_sender
 from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP
@@ -233,7 +233,11 @@ def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
             if eigenverbrauch_prediction is None or not eigenverbrauch_prediction.covers_prediction_horizon(reference_date=datetime.date.today()):
                 logger.error(f"Could not get valid eigenverbrauch prediction for location {location.alias}")
                 continue
-            eigenverbrauch_prediction.receivers.append(enums.PredictionReceiver.IMPULS_ENERGY_TRADING)
+            eigenverbrauch_prediction.shipments.append(
+                PredictionShipment(
+                    receiver=enums.PredictionReceiver.IMPULS_ENERGY_TRADING
+                )
+            )
             uow.locations.update(location)
             df = eigenverbrauch_prediction.df.copy()
             TimeSeriesSchema.validate(df)

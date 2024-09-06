@@ -297,7 +297,6 @@ class LocationRepository(
         def prediction_shipment_to_db(prediction_shipment: model.PredictionShipment) -> DBPredictionShipment:
             return DBPredictionShipment(
                 id=prediction_shipment.id,
-                created_at=prediction_shipment.created,
                 receiver=prediction_shipment.receiver.value
             )
 
