@@ -12,8 +12,9 @@ from src.services.data_sender import DataSender
 from src.domain import commands
 from src.domain import model
 from src.utils.dataframe_schemas import IetEigenverbrauchSchema
+from src.utils.external_schedules import GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
-from tests.factories import LocationFactory, ProducerFactory, PredictionFactory
+from tests.factories import LocationFactory, ProducerFactory, PredictionFactory, PredictionShipmentFactory
 from tests.fakes import FakeEmailSender, FakeIetDataSender
 from tests.unit.conftest import random_malo
 
@@ -134,6 +135,8 @@ class TestSendPredictions:
         # ARRANGE
         bus = setup_test()
 
+        ONE_HOUR_BEFORE_GATE_CLOSURE = dt.datetime.combine(dt.date.today(), GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT) - dt.timedelta(hours=1)
+
         location_1 = LocationFactory.build(
             producers=[
                 ProducerFactory.build(prognosis_data_retriever=enums.DataRetriever.IMPULS_ENERGY_TRADING_SFTP)
@@ -141,7 +144,12 @@ class TestSendPredictions:
             predictions=[
                 PredictionFactory.build(
                     type=enums.PredictionType.CONSUMPTION,
-                    receivers=[PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT]
+                    shipments=[
+                        PredictionShipmentFactory.build(
+                            created=ONE_HOUR_BEFORE_GATE_CLOSURE,
+                            receiver=PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+                        )
+                    ]
                 )
             ]
         )
@@ -152,7 +160,12 @@ class TestSendPredictions:
             predictions=[
                 PredictionFactory.build(
                     type=enums.PredictionType.CONSUMPTION,
-                    receivers=[PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT]
+                    shipments=[
+                        PredictionShipmentFactory.build(
+                            created=ONE_HOUR_BEFORE_GATE_CLOSURE,
+                            receiver=PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+                        )
+                    ]
                 )
             ]
         )
@@ -164,7 +177,12 @@ class TestSendPredictions:
             predictions=[
                 PredictionFactory.build(
                     type=enums.PredictionType.CONSUMPTION,
-                    receivers=[PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT]
+                    shipments=[
+                        PredictionShipmentFactory.build(
+                            created=ONE_HOUR_BEFORE_GATE_CLOSURE,
+                            receiver=PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+                        )
+                    ]
                 )
             ]
         )
@@ -196,7 +214,8 @@ class TestSendPredictions:
 
         with bus.uow as uow:
             for id_ in [location_1.id, location_2.id]:
-                assert uow.locations.get(id_).predictions[0].receivers == [PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT, PredictionReceiver.IMPULS_ENERGY_TRADING]
+                prediction = uow.locations.get(id_).predictions[0]
+                assert [s.receiver for s in prediction.shipments] == [PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT, PredictionReceiver.IMPULS_ENERGY_TRADING]
 
     def test_enforce_sending_eigenverbrauch_predictions_to_impuls_energy_trading(self):
         # ARRANGE
@@ -237,4 +256,5 @@ class TestSendPredictions:
         )
 
         with bus.uow as uow:
-            assert uow.locations.get(location.id).predictions[0].receivers == [PredictionReceiver.IMPULS_ENERGY_TRADING]
+            prediction = uow.locations.get(location.id).predictions[0]
+            assert [s.receiver for s in prediction.shipments] == [PredictionReceiver.IMPULS_ENERGY_TRADING]
