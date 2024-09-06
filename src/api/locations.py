@@ -151,6 +151,7 @@ def update_location_settings(
                 id=str(new_location.id),
                 state=new_location.state,
                 alias=new_location.alias,
+                tso=new_location.tso,
                 residual_short=MarketLocation(number=new_location.residual_short.number),
                 settings=LocationSettings(
                     active_from=new_location.settings.active_from,

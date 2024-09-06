@@ -136,6 +136,7 @@ class TestLocation:
         json = {
             "state": State.BERLIN.value,
             "alias": "New Location",
+            "tso": TransmissionSystemOperator.AMPRION.value,
             "residual_short": {"number": "market_location-1"},
             "settings": {"active_from": "2024-01-01", "active_until": None},
         }
@@ -149,14 +150,14 @@ class TestLocation:
         assert response.json()["settings"]["active_until"] == "2024-01-10"
 
     def test_get_locations(self, bus, setup_database):
-        client.post("/locations/", json={"state": State.BERLIN, "alias": "Location-1", "residual_short": {"number": "market_location-1"}, "settings": {"active_from": "2024-01-01"}})
-        client.post("/locations/", json={"state": State.BERLIN, "alias": "Location-2", "residual_short": {"number": "market_location-2"}, "settings": {"active_from": "2024-01-01"}})
+        client.post("/locations/", json={"state": State.BERLIN, "alias": "Location-1", "tso": TransmissionSystemOperator.AMPRION.value, "residual_short": {"number": "market_location-1"}, "settings": {"active_from": "2024-01-01"}})
+        client.post("/locations/", json={"state": State.BERLIN, "alias": "Location-2", "tso": TransmissionSystemOperator.AMPRION.value, "residual_short": {"number": "market_location-2"}, "settings": {"active_from": "2024-01-01"}})
         response = client.get("/locations/")
         assert response.status_code == 200
         assert response.json()["total"] == 2
 
     def test_get_location(self, bus, setup_database):
-        json = {"state": State.BERLIN.value, "alias": "Location-1", "residual_short": {"number": "market_location-1"}, "settings": {"active_from": "2024-01-01", "active_until": None}}
+        json = {"state": State.BERLIN.value, "alias": "Location-1", "tso": TransmissionSystemOperator.AMPRION.value, "residual_short": {"number": "market_location-1"}, "settings": {"active_from": "2024-01-01", "active_until": None}}
         post_response = client.post("/locations/", json=json)
         location_id = post_response.json()["id"]
         response = client.get(f"/locations/{location_id}/")
@@ -166,6 +167,7 @@ class TestLocation:
             'id': location_id,
             'state': 'BE',
             'alias': 'Location-1',
+            'tso': 'amprion',
             'residual_short': {
                 'id': response.json()['residual_short']['id'],
                 'number': 'market_location-1'
