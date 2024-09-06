@@ -94,3 +94,8 @@ class MakeAllPredictions(Command):
 @dataclass
 class SendAllEigenverbrauchsPredictionsToImpuls(Command):
     send_even_if_not_sent_to_internal_fahrplanmanagement: Optional[bool] = False
+
+
+@dataclass
+class SendAllResidualLongPredictionsToImpuls(Command):
+    send_even_if_not_sent_to_internal_fahrplanmanagement: Optional[bool] = False

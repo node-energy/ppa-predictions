@@ -11,6 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from src import enums
 from src.domain import model
 from src.domain.model import MarketLocation
+from src.enums import TransmissionSystemOperator
 
 
 @pytest.fixture
@@ -31,18 +32,6 @@ def random_malo():
 
 
 @pytest.fixture
-def historic_load_profile(component):
-    df = pd.read_csv(
-        "tests/unit/historic_load_profile.csv",
-        index_col="Timestamp (Europe/Berlin)",
-        parse_dates=True,
-    )
-    return model.HistoricLoadProfile.from_dataframe(
-        id=uuid.uuid4(), component=component, df=df
-    )
-
-
-@pytest.fixture
 def location():
     return model.Location(
         settings=model.LocationSettings(
@@ -50,7 +39,8 @@ def location():
             active_until=None,
         ),
         state=enums.State.BERLIN,
-        residual_short=model.MarketLocation(number=random_malo(), measurand=enums.Measurand.POSITIVE)
+        residual_short=model.MarketLocation(number=random_malo(), measurand=enums.Measurand.POSITIVE),
+        tso=TransmissionSystemOperator.AMPRION,
     )
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import datetime
 import uuid
+from collections import defaultdict
 from typing import Optional
 from uuid import UUID
 
@@ -18,10 +19,10 @@ from src.domain.model import MarketLocation, PredictionShipment
 from src.infrastructure import unit_of_work
 from src.services import predictor, data_sender
 from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP
-from src.utils.dataframe_schemas import IetEigenverbrauchSchema, TimeSeriesSchema
+from src.utils.dataframe_schemas import IetEigenverbrauchSchema, TimeSeriesSchema, IetResidualLoadSchema
 from src.utils.external_schedules import GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
-from src.enums import Measurand, DataRetriever, PredictionType
+from src.enums import Measurand, DataRetriever, PredictionType, IMPULS_ENERGY_TRADING_TSO_LABELS, TransmissionSystemOperator
 from src import enums
 
 logger = logging.getLogger(__name__)
@@ -253,6 +254,73 @@ def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
         uow.commit()
 
 
+def send_residual_long_predictions_to_impuls_energy_trading(
+    cmd: commands.SendAllEigenverbrauchsPredictionsToImpuls,
+    uow: unit_of_work.AbstractUnitOfWork,
+    dts: data_sender.AbstractDataSender
+):
+    with uow:
+        predictions_per_tso = _get_predictions_for_impuls_energy_trading(
+            uow, PredictionType.RESIDUAL_LONG, cmd.send_even_if_not_sent_to_internal_fahrplanmanagement
+        )
+        prediction_sum_per_tso = {}
+        for tso, predictions in predictions_per_tso.items():
+            df = pd.concat(predictions, axis=1)
+            series = df.sum(axis=1).squeeze()
+            series = series.tz_convert(TIMEZONE_UTC)
+            series.index.name = "#timestamp"
+            series.name = IMPULS_ENERGY_TRADING_TSO_LABELS[tso]
+            series = series.div(1000)  # convert from kW to MW
+            series = series.round(3)  # todo clarify for which unit the 3 digits rule applies
+            prediction_sum_per_tso[tso] = series
+        df = pd.concat(prediction_sum_per_tso.values(), axis=1)
+        for tso in TransmissionSystemOperator:
+            if tso not in prediction_sum_per_tso.keys():
+                df[IMPULS_ENERGY_TRADING_TSO_LABELS[tso]] = 0.0
+
+        df = DataFrame[IetResidualLoadSchema](df)
+        dts.send_residual_long_to_impuls_energy_trading(df)
+        uow.commit()
+
+
+def _get_predictions_for_impuls_energy_trading(
+    uow: unit_of_work.AbstractUnitOfWork,
+    prediction_type: PredictionType,
+    send_even_if_not_sent_to_internal_fahrplanmanagement: bool = False
+) -> [DataFrame[TimeSeriesSchema]]:
+    predictions_per_tso: dict[src.TransmissionSystemOperator, [DataFrame[TimeSeriesSchema]]] = defaultdict(list)
+    locations: [model.Location] = uow.locations.get_all()
+    for location in locations:
+        if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
+            continue
+        if send_even_if_not_sent_to_internal_fahrplanmanagement:
+            mandatory_previous_receivers = None
+            sent_before = None
+        else:
+            mandatory_previous_receivers = enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+            sent_before = GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
+
+        prediction = location.get_most_recent_prediction(
+            prediction_type=prediction_type,
+            receiver=mandatory_previous_receivers,
+            sent_before=sent_before,
+        )
+        if prediction is None or not prediction.covers_prediction_horizon(reference_date=datetime.date.today()):
+            logger.error(f"Could not get valid eigenverbrauch prediction for location {location.alias}")
+            continue
+        prediction.shipments.append(
+            PredictionShipment(
+                receiver=enums.PredictionReceiver.IMPULS_ENERGY_TRADING
+            )
+        )
+        uow.locations.update(location)
+        df = prediction.df.copy()
+        TimeSeriesSchema.validate(df)
+        df.columns = [str(location.id)]
+        predictions_per_tso[location.tso].append(df)
+    return predictions_per_tso
+
+
 def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfWork):
     with uow:
         producers = []
@@ -337,4 +405,5 @@ COMMAND_HANDLERS = {
     commands.SendPredictions: send_predictions,
     commands.UpdatePredictAll: update_and_predict_all,
     commands.SendAllEigenverbrauchsPredictionsToImpuls: send_eigenverbrauchs_predictions_to_impuls_energy_trading,
+    commands.SendAllResidualLongPredictionsToImpuls: send_residual_long_predictions_to_impuls_energy_trading,
 }
