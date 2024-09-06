@@ -9,8 +9,8 @@ from pandera.typing import DataFrame
 from src.config import settings
 from src.enums import Measurand
 from src.services.load_data_exchange.common import SftpMixin, AbstractLoadDataRetriever, \
-    SftpDownloadGenerationPrediction, SftpUploadEigenverbrauch, AbstractLoadDataSender
-from src.utils.dataframe_schemas import TimeSeriesSchema, IetEigenverbrauchSchema
+    SftpDownloadGenerationPrediction, SftpUploadEigenverbrauch, AbstractLoadDataSender, SftpUploadResidualLong
+from src.utils.dataframe_schemas import TimeSeriesSchema, IetEigenverbrauchSchema, IetResidualLoadSchema
 from src.utils.timezone import TIMEZONE_BERLIN
 
 
@@ -50,12 +50,20 @@ class IetSftpClient(SftpMixin):
         return file_objs
 
     def upload_eigenverbrauch(self, file_obj: io.BytesIO):
+        file_path = f"/Eigenverbrauch/Anlagen/{file_obj.name}"
+        self._upload_file(file_obj, file_path)
+
+    def upload_residual_long(self, file_obj: io.BytesIO):
+        file_path = f"/Ausspeisung/{file_obj.name}"
+        self._upload_file(file_obj, file_path)
+
+    def _upload_file(self, file_obj: io.BytesIO, path: str):
+        self._sftp.putfo(file_obj, path)
         if not settings.send_predictions_enabled:
             return
         try:
             self._open_sftp()
-            self._sftp.chdir("/Eigenverbrauch")
-            self._sftp.putfo(file_obj, file_obj.name)
+            self._sftp.putfo(file_obj, remotepath=path)
         except Exception as exc:
             print(exc)
         finally:
@@ -133,7 +141,29 @@ class IetSftpEigenverbrauchDataSender(AbstractLoadDataSender):
 
     def _to_csv(self, df: DataFrame[IetEigenverbrauchSchema]) -> io.BytesIO:
         file_obj = io.BytesIO()
-        file_obj.name = f"{datetime.date.today().strftime('%Y%m%d')}_eigenverbrauch_anlagen{'--'}.csv"  # TODO which dates to put in file name?
+        today = datetime.date.today().strftime('%Y%m%d')
+        tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).strftime('%Y%m%d')
+        file_obj.name = f"{today}_eigenverbrauch_anlagen_{tomorrow}.csv"
+        df.reset_index(inplace=True)
+        df["#timestamp"] = df["#timestamp"].dt.strftime('%d.%m.%Y %H:%M:%S')
+        df.to_csv(file_obj, sep=";", decimal=",", index=False)
+        file_obj.seek(0)
+        return file_obj
+
+
+class IetSftpResidualLongDataSender(AbstractLoadDataSender):
+    def __init__(self, sftp_client: SftpUploadResidualLong = IetSftpClient()):
+        self.sftp_client = sftp_client
+
+    def send_data(self, data: DataFrame[IetResidualLoadSchema]) -> None:
+        file_obj = self._to_csv(data)
+        return self.sftp_client.upload_residual_long(file_obj)
+
+    def _to_csv(self, df: DataFrame[IetResidualLoadSchema]) -> io.BytesIO:
+        file_obj = io.BytesIO()
+        today = datetime.date.today().strftime('%Y%m%d')
+        tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).strftime('%Y%m%d')
+        file_obj.name = f"{today}_ausspeisemengen_{tomorrow}.csv"
         df.reset_index(inplace=True)
         df["#timestamp"] = df["#timestamp"].dt.strftime('%d.%m.%Y %H:%M:%S')
         df.to_csv(file_obj, sep=";", decimal=",", index=False)

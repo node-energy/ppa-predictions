@@ -10,10 +10,10 @@ from pandera.typing import DataFrame
 from src.enums import Measurand
 from src.services.load_data_exchange.optinode_database import OptinodeDataRetriever
 from src.services.load_data_exchange.impuls_energy_trading import IetSftpGenerationDataRetriever, \
-    IetSftpEigenverbrauchDataSender
+    IetSftpEigenverbrauchDataSender, IetSftpResidualLongDataSender
 from src.services.load_data_exchange.enercast import EnercastSftpDataRetriever
 from src.services.load_data_exchange.common import AbstractSftpClient
-from src.utils.dataframe_schemas import IetEigenverbrauchSchema
+from src.utils.dataframe_schemas import IetEigenverbrauchSchema, IetResidualLoadSchema
 from src.utils.exceptions import ConflictingEnergyData, NoMeteringOrMarketLocationFound
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
 from tests.integration import test_files
@@ -48,6 +48,9 @@ class FakeIetSftpClient(AbstractSftpClient):
     def upload_eigenverbrauch(self, file: io.BytesIO):
         return file.read()
 
+    def upload_residual_long(self, file: io.BytesIO):
+        return file.read()
+
 
 class TestIetSftpGenerationDataRetriever:
     def test_load_data(self):
@@ -60,7 +63,7 @@ class TestIetSftpGenerationDataRetriever:
 
 class TestIETSftpConsumptionDataSender:
     def test_send_data(self):
-        data: DataFrame[IetEigenverbrauchSchema] = DataFrame[IetEigenverbrauchSchema](
+        data = DataFrame[IetEigenverbrauchSchema](
             index=pd.DatetimeIndex(
                 data=pd.date_range(start="2021-01-01T00:00:00", periods=5, freq="15min", tz=TIMEZONE_UTC),
                 name="#timestamp",
@@ -72,6 +75,27 @@ class TestIETSftpConsumptionDataSender:
         )
         expected_bytes = b'#timestamp;asset-1;asset-2\n01.01.2021 00:00:00;1;5\n01.01.2021 00:15:00;2;4\n01.01.2021 00:30:00;3;3\n01.01.2021 00:45:00;4;2\n01.01.2021 01:00:00;5;1\n'
         uploaded_bytes = IetSftpEigenverbrauchDataSender(
+            sftp_client=FakeIetSftpClient()
+        ).send_data(data)
+        assert uploaded_bytes == expected_bytes
+
+
+class TestIETSftpResidualLongDataSender:
+    def test_send_data(self):
+        data = DataFrame[IetResidualLoadSchema](
+            index=pd.DatetimeIndex(
+                data=pd.date_range(start="2021-01-01T00:00:00", periods=5, freq="15min", tz=TIMEZONE_UTC),
+                name="#timestamp",
+            ),
+            data={
+                "TransnetBW": [1, 2, 3, 4, 5],
+                "TenneT": [5, 4, 3, 2, 1],
+                "Amprion": [0, 0, 0, 0, 0,],
+                "50Hertz": [0, 0, 0, 0, 0,],
+            },
+        )
+        expected_bytes = b'#timestamp;TransnetBW;TenneT;Amprion;50Hertz\n01.01.2021 00:00:00;1;5;0;0\n01.01.2021 00:15:00;2;4;0;0\n01.01.2021 00:30:00;3;3;0;0\n01.01.2021 00:45:00;4;2;0;0\n01.01.2021 01:00:00;5;1;0;0\n'
+        uploaded_bytes = IetSftpResidualLongDataSender(
             sftp_client=FakeIetSftpClient()
         ).send_data(data)
         assert uploaded_bytes == expected_bytes

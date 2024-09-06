@@ -59,6 +59,11 @@ class SftpUploadEigenverbrauch(SftpClient, Protocol):
         ...
 
 
+class SftpUploadResidualLong(SftpClient, Protocol):
+    def upload_residual_long(self, file_obj: io.BytesIO):
+        ...
+
+
 class SftpMixin:
     def _open_sftp(self):
         self._ssh = SSHClient()
