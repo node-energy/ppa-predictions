@@ -3,6 +3,7 @@ from alembic import command
 from alembic.config import Config
 from pathlib import Path
 from fastapi.testclient import TestClient
+from freezegun import freeze_time
 
 from src import enums
 from src.config import settings
@@ -12,6 +13,7 @@ from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 from src.services.load_data_exchange.common import APILoadDataRetriever
 from src.services.data_sender import DataSender
+from tests.conftest import ONE_HOUR_BEFORE_GATE_CLOSURE
 from tests.factories import LocationFactory, PredictionFactory, ProducerFactory, PredictionShipmentFactory
 from tests.fakes import FakeEmailSender, FakeIetDataSender
 
@@ -181,6 +183,7 @@ class TestLocation:
         ...
         # todo
 
+    @freeze_time(ONE_HOUR_BEFORE_GATE_CLOSURE)
     def test_send_eigenverbrauch_predictions(self, bus, setup_database):
         # ARRANGE
         location = LocationFactory.build(
@@ -231,4 +234,36 @@ class TestLocation:
         # ASSERT
         assert response.status_code == 202
         assert len(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data) == 1
+
+    @freeze_time(ONE_HOUR_BEFORE_GATE_CLOSURE)
+    def test_send_residual_long_predictions(self, bus, setup_database):
+        # ARRANGE
+        location = LocationFactory.build(
+            tso=TransmissionSystemOperator.AMPRION,
+            producers=[
+                ProducerFactory.build(prognosis_data_retriever=enums.DataRetriever.IMPULS_ENERGY_TRADING_SFTP)
+            ],
+            predictions=[
+                PredictionFactory.build(
+                    type=enums.PredictionType.RESIDUAL_LONG,
+                    shipments=[
+                        PredictionShipmentFactory.build(
+                            receiver=PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+                        )
+                    ]
+                )
+            ]
+        )
+        with bus.uow as uow:
+            uow.locations.add(location)
+            uow.commit()
+        # ACT
+        response = client.post(
+            "/locations/send_residual_long_predictions_impuls/",
+            json={}
+        )
+
+        # ASSERT
+        assert response.status_code == 202
+        assert len(bus.dts.impuls_energy_trading_residual_long_sender.data) == 1
 

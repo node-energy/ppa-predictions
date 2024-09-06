@@ -65,7 +65,7 @@ class Location(BaseModel):
         )
 
 
-class SendEigenverbrauchPredictionToImpulsConfig(BaseModel):
+class SendPredictionToImpulsConfig(BaseModel):
     send_even_if_not_sent_to_internal_fahrplanmanagement: Optional[bool] = None
 
 
@@ -226,9 +226,20 @@ def send_updated_predictions_for_all(bus: Annotated[MessageBus, Depends(get_bus)
 @router.post("/send_eigenverbrauchs_predictions_impuls")
 def send_all_eigenverbrauch_predictions_to_impuls_energy_trading(
     bus: Annotated[MessageBus, Depends(get_bus)],
-    fa_send_eigenverbrauch_prediction_to_impuls_config: SendEigenverbrauchPredictionToImpulsConfig
+    fa_send_prediction_to_impuls_config: SendPredictionToImpulsConfig
 ):
     bus.handle(commands.SendAllEigenverbrauchsPredictionsToImpuls(
-        fa_send_eigenverbrauch_prediction_to_impuls_config.send_even_if_not_sent_to_internal_fahrplanmanagement
+        fa_send_prediction_to_impuls_config.send_even_if_not_sent_to_internal_fahrplanmanagement
+    ))
+    return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.post("/send_residual_long_predictions_impuls")
+def send_all_residual_long_predictions_to_impuls_energy_trading(
+    bus: Annotated[MessageBus, Depends(get_bus)],
+    fa_send_prediction_to_impuls_config: SendPredictionToImpulsConfig
+):
+    bus.handle(commands.SendAllResidualLongPredictionsToImpuls(
+        fa_send_prediction_to_impuls_config.send_even_if_not_sent_to_internal_fahrplanmanagement
     ))
     return Response(status_code=status.HTTP_202_ACCEPTED)

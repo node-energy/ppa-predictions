@@ -12,16 +12,10 @@ from src.services.data_sender import DataSender
 from src.domain import commands
 from src.domain import model
 from src.utils.dataframe_schemas import IetEigenverbrauchSchema, IetResidualLoadSchema
-from src.utils.external_schedules import GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
+from tests.conftest import ONE_HOUR_BEFORE_GATE_CLOSURE
 from tests.factories import LocationFactory, ProducerFactory, PredictionFactory, PredictionShipmentFactory
 from tests.fakes import FakeEmailSender, FakeIetDataSender
-
-
-ONE_HOUR_BEFORE_GATE_CLOSURE = dt.datetime.combine(
-    dt.date.today(),
-    GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
-) - dt.timedelta(hours=1)
 
 
 def create_df_with_constant_values(value=42.0):
