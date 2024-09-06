@@ -271,6 +271,7 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
         location = model.Location(
             state=cmd.state,
             alias=cmd.alias,
+            tso=cmd.tso,
             residual_short=residual_short,
             residual_long=residual_long,
             producers=producers,

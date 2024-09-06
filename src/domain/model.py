@@ -7,7 +7,7 @@ from datetime import datetime, date, timedelta, time
 from typing import Optional
 from dataclasses import dataclass, field
 
-from src.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver
+from src.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver, TransmissionSystemOperator
 from src.utils.timezone import TIMEZONE_BERLIN, utc_now
 
 PROGNOSIS_HORIZON_DAYS = 7
@@ -51,6 +51,7 @@ class Location(AggregateRoot):
     __hash__ = AggregateRoot.__hash__
     settings: LocationSettings
     state: State
+    tso: TransmissionSystemOperator
     alias: Optional[str] = None
     producers: list[Producer] = field(default_factory=list)
     residual_long: Optional[MarketLocation] = None

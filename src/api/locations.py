@@ -9,7 +9,7 @@ from .common import get_bus, BasePagination
 from src.infrastructure.message_bus import MessageBus
 from src.domain import commands
 from src.domain.model import Location as DLocation
-from src.enums import DataRetriever, State
+from src.enums import DataRetriever, State, TransmissionSystemOperator
 
 router = APIRouter(prefix="/locations")
 
@@ -34,6 +34,7 @@ class Location(BaseModel):
     id: Optional[uuid.UUID] = None
     state: str
     alias: Optional[str] = None
+    tso: TransmissionSystemOperator
     residual_short: MarketLocation
     residual_long: Optional[MarketLocation] = None
     producers: Optional[list[Producer]] = []
@@ -42,9 +43,10 @@ class Location(BaseModel):
     @classmethod
     def from_domain(cls, location: DLocation):
         return cls(
+            id=location.id,
             state=location.state,
             alias=location.alias,
-            id=location.id,
+            tso=location.tso.value,
             residual_short=MarketLocation(id=location.residual_short.id, number=location.residual_short.number),
             residual_long=MarketLocation(id=location.residual_long.id, number=location.residual_long.number) if location.residual_long else None,
             producers=[
@@ -102,6 +104,7 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
             id=fa_location.id,
             state=state,
             alias=fa_location.alias,
+            tso=fa_location.tso,
             residual_short={
                 "id": fa_location.residual_short.id,
                 "number": fa_location.residual_short.number,

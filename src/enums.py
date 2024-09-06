@@ -49,3 +49,10 @@ class State(str, Enum):
 class PredictionReceiver(str, Enum):
     INTERNAL_FAHRPLANMANAGEMENT = "internal_fahrplanmanagement"
     IMPULS_ENERGY_TRADING = "impuls_energy_trading"
+
+
+class TransmissionSystemOperator(str, Enum):
+    HERTZ = "50hzt"
+    AMPRION = "amprion"
+    TENNET = "tennet"
+    TRANSNET = "transnet"

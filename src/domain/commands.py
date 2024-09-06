@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, date
 from dataclasses import dataclass
 from typing import Literal, Optional
-from src.enums import DataRetriever, State
+from src.enums import DataRetriever, State, TransmissionSystemOperator
 
 
 class Command:
@@ -34,6 +34,7 @@ class CreateLocation(Command):
     id: Optional[uuid.UUID]
     state: State
     alias: Optional[str]
+    tso: TransmissionSystemOperator
     residual_short: dict[str, uuid.UUID | str]
     residual_long: Optional[dict[str, uuid.UUID | str]]
     producers: Optional[list[dict[str, str | DataRetriever | uuid.UUID]]]

@@ -26,6 +26,7 @@ class Location(Base, UUIDMixin):
         cascade="all, delete-orphan",
     )
     state: Mapped[str]
+    tso: Mapped[str]
     alias: Mapped[Optional[str]]
     residual_long: Mapped[Optional[MarketLocation]] = relationship(
         back_populates="residual_long_location",

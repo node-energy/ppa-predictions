@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from src import enums
 from src.config import settings
-from src.enums import State, PredictionReceiver
+from src.enums import State, PredictionReceiver, TransmissionSystemOperator
 from src.main import app
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
@@ -50,6 +50,7 @@ class TestLocation:
         [
             pytest.param({
                     "state": State.BERLIN.value,
+                    "tso": TransmissionSystemOperator.AMPRION.value,
                     "residual_short": {"number": "market_location-1"},
                     "settings": {"active_from": "2024-01-01"},
                 }, id="only mandatory fields"
@@ -57,6 +58,7 @@ class TestLocation:
             pytest.param({
                     "state": State.BERLIN.value,
                     "alias": "New Location",
+                    "tso": TransmissionSystemOperator.AMPRION.value,
                     "residual_short": {"number": "market_location-1"},
                     "residual_long": {"number": "market_location-2"},
                     "producers": [
@@ -74,6 +76,7 @@ class TestLocation:
                     "id": "a0125769-fde8-47f9-87ab-0a9c7cc4ee00",
                     "state": State.BERLIN.value,
                     "alias": "New Location",
+                    "tso": TransmissionSystemOperator.AMPRION.value,
                     "residual_short": {"id": "942ca59d-745c-492f-9095-d58cba45120d", "number": "market_location-1"},
                     "residual_long": {"id": "ec489260-e178-4add-89c3-2166639218ac", "number": "market_location-2"},
                     "producers": [
@@ -99,6 +102,7 @@ class TestLocation:
             'id': json["id"] if "id" in json.keys() else response.json()["id"],
             'state': 'BE',
             'alias': json["alias"] if "alias" in json.keys() else None,
+            'tso': 'amprion',
             'residual_short': {
                 'id': json['residual_short']["id"] if "id" in json['residual_short'].keys() else response.json()['residual_short']["id"],
                 'number': 'market_location-1'
