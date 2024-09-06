@@ -192,11 +192,13 @@ class LocationRepository(
             if db_component.type == ComponentType.CONSUMER.value:
                 return model.Consumer(
                     id=db_component.id,
+                    name=db_component.name,
                     market_location=market_location_to_domain(db_component.market_location),
                 )
             else:
                 return model.Producer(
                     id=db_component.id,
+                    name=db_component.name,
                     market_location=market_location_to_domain(db_component.market_location),
                     prognosis_data_retriever=DataRetriever(db_component.prognosis_data_retriever),
                 )
@@ -274,6 +276,7 @@ class LocationRepository(
             type = ComponentType.PRODUCER.value if isinstance(component, model.Producer) else ComponentType.CONSUMER.value
             return DBComponent(
                 id=component.id,
+                name=component.name,
                 type=type,
                 market_location=market_location_to_db(component.market_location),
                 prognosis_data_retriever=component.prognosis_data_retriever.value if hasattr(component, "prognosis_data_retriever") else None,

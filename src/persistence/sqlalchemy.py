@@ -51,6 +51,7 @@ class Component(Base, UUIDMixin):
     __tablename__ = "components"
 
     type: Mapped[str]
+    name: Mapped[str]
     market_location: Mapped[MarketLocation] = relationship(
         back_populates="component", foreign_keys="MarketLocation.component_id", cascade="all, delete",   # todo think about cascade behaviour
     )

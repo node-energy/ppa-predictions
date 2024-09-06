@@ -310,7 +310,7 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
                 id_=p["market_location_id"], number=p["market_location_number"], measurand=src.enums.Measurand.NEGATIVE,
             )
             producer = _build_producer(
-                id_=p["id"], market_location=market_location, prognosis_data_retriever=p["prognosis_data_retriever"]
+                id_=p["id"], name=p["name"], market_location=market_location, prognosis_data_retriever=p["prognosis_data_retriever"]
             )
             producers.append(producer)
 
@@ -350,8 +350,9 @@ def _build_market_location(id_: Optional[uuid.UUID], number: str, measurand: src
     return malo
 
 
-def _build_producer(id_: Optional[uuid.UUID], market_location: model.MarketLocation, prognosis_data_retriever: src.enums.DataRetriever) -> model.Producer:
+def _build_producer(id_: Optional[uuid.UUID], name: str, market_location: model.MarketLocation, prognosis_data_retriever: src.enums.DataRetriever) -> model.Producer:
     producer = model.Producer(
+        name=name,
         market_location=market_location,
         prognosis_data_retriever=prognosis_data_retriever
     )

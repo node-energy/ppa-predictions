@@ -21,6 +21,7 @@ class MarketLocation(BaseModel):
 
 class Producer(BaseModel):
     id: Optional[uuid.UUID] = None
+    name: str
     market_location: MarketLocation
     prognosis_data_retriever: DataRetriever
 
@@ -52,6 +53,7 @@ class Location(BaseModel):
             producers=[
                 Producer(
                     id=p.id,
+                    name=p.name,
                     market_location=MarketLocation(id=p.market_location.id, number=p.market_location.number),
                     prognosis_data_retriever=DataRetriever(p.prognosis_data_retriever)
                 ) for p in location.producers
@@ -115,6 +117,7 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
             } if fa_location.residual_long else None,
             producers=[{
                 "id": producer.id,
+                "name": producer.name,
                 "market_location_id": producer.market_location.id,
                 "market_location_number": producer.market_location.number,
                 "prognosis_data_retriever": producer.prognosis_data_retriever

@@ -65,6 +65,7 @@ class TestLocation:
                     "residual_long": {"number": "market_location-2"},
                     "producers": [
                         {
+                            "name": "Producer 1",
                             "market_location": {
                                 "number": "market_location-3"
                             },
@@ -84,6 +85,7 @@ class TestLocation:
                     "producers": [
                         {
                             "id": "8d1cc110-fa2b-4fcc-a404-80155b431649",
+                            "name": "Producer 1",
                             "market_location": {
                                 "id": "49214c9c-1474-4ac2-9bcc-d7a9c3c999d7",
                                 "number": "market_location-3"
@@ -116,6 +118,7 @@ class TestLocation:
             'producers': [
                 {
                     'id': json['producers'][0]['id'] if 'id' in json['producers'][0].keys() else response.json()['producers'][0]['id'],
+                    'name': 'Producer 1',
                     'market_location': {
                         'id': json['producers'][0]['market_location']['id'] if 'id' in json['producers'][0]['market_location'].keys() else response.json()['producers'][0]['market_location']['id'],
                         'number': 'market_location-3'
