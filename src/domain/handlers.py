@@ -18,7 +18,7 @@ from src.domain import model
 from src.domain.model import MarketLocation, PredictionShipment
 from src.infrastructure import unit_of_work
 from src.services import predictor, data_sender
-from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP
+from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP, LocationAndProducer
 from src.utils.dataframe_schemas import IetEigenverbrauchSchema, TimeSeriesSchema, IetResidualLoadSchema
 from src.utils.external_schedules import GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
@@ -151,7 +151,7 @@ def calculate_predictions(
                 data_retriever_config = DATA_RETRIEVER_MAP[location.producers[0].prognosis_data_retriever]
                 data_retriever = data_retriever_config.data_retriever()
                 for producer in location.producers:
-                    asset_identifier = data_retriever_config.asset_identifier_func(producer)
+                    asset_identifier = data_retriever_config.asset_identifier_func(LocationAndProducer(location, producer))
                     location.add_prediction(
                         model.Prediction(
                             df=data_retriever.get_data(
