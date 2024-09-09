@@ -3,7 +3,8 @@ import abc
 from src.services.load_data_exchange.email import ForecastEmailSender, AbstractEmailSender
 from src.domain.model import Prediction
 from src.services.load_data_exchange.common import AbstractLoadDataSender
-from src.services.load_data_exchange.impuls_energy_trading import IetSftpEigenverbrauchDataSender
+from src.services.load_data_exchange.impuls_energy_trading import IetSftpEigenverbrauchDataSender, \
+    IetSftpResidualLongDataSender
 
 
 class AbstractDataSender(abc.ABC):
@@ -25,7 +26,7 @@ class DataSender(AbstractDataSender):
         self,
         fahrplanmanagement_sender: AbstractEmailSender = ForecastEmailSender(),
         impuls_energy_trading_eigenverbrauch_sender: AbstractLoadDataSender = IetSftpEigenverbrauchDataSender(),
-        impuls_energy_trading_residual_long_sender: AbstractLoadDataSender = None, # todo
+        impuls_energy_trading_residual_long_sender: AbstractLoadDataSender = IetSftpResidualLongDataSender()
     ):
         self.fahrplanmanagement_sender = fahrplanmanagement_sender
         self.impuls_energy_trading_eigenverbrauch_sender = impuls_energy_trading_eigenverbrauch_sender

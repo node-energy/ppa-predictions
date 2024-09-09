@@ -54,11 +54,10 @@ class IetSftpClient(SftpMixin):
         self._upload_file(file_obj, file_path)
 
     def upload_residual_long(self, file_obj: io.BytesIO):
-        file_path = f"/Ausspeisung/{file_obj.name}"
+        file_path = f"/Ausspeisung/Regelzonen/{file_obj.name}"
         self._upload_file(file_obj, file_path)
 
     def _upload_file(self, file_obj: io.BytesIO, path: str):
-        self._sftp.putfo(file_obj, path)
         if not settings.send_predictions_enabled:
             return
         try:
