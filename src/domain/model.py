@@ -121,6 +121,9 @@ class Location(AggregateRoot):
         )
         short_prediction_df[short_prediction_df < 0] = 0
         short_prediction_df = clip_to_time_range(short_prediction_df)
+        short_prediction_df = short_prediction_df[
+            short_prediction_df.first_valid_index():short_prediction_df.last_valid_index()
+        ]
         self.predictions.append(
             Prediction(df=short_prediction_df, type=PredictionType.RESIDUAL_SHORT)
         )
@@ -129,6 +132,9 @@ class Location(AggregateRoot):
             long_prediction_df = total_production_df - total_consumption_df
             long_prediction_df[long_prediction_df < 0] = 0
             long_prediction_df = clip_to_time_range(long_prediction_df)
+            long_prediction_df = long_prediction_df[
+                long_prediction_df.first_valid_index():long_prediction_df.last_valid_index()
+            ]
             self.predictions.append(
                 Prediction(df=long_prediction_df, type=PredictionType.RESIDUAL_LONG)
             )

@@ -1,3 +1,4 @@
+import datetime
 import datetime as dt
 import os
 from typing import Collection
@@ -24,12 +25,19 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
 
         django.setup()
 
-    def _get_data(self, asset_identifier: str, measurand: Measurand) -> DataFrame[TimeSeriesSchema]:
-        start_date = dt.datetime.now(tz=TIMEZONE_BERLIN) - dt.timedelta(days=14)
-        malo = self._get_market_location(asset_identifier, start_date, measurand)
+    def _get_data(
+        self,
+        asset_identifier: str,
+        measurand: Measurand,
+        start: datetime.datetime | None = None,
+        end: datetime.datetime | None = None
+    ) -> DataFrame[TimeSeriesSchema]:
+        if not start:
+            start = dt.datetime.combine(dt.date.today(), dt.time.min, tzinfo=TIMEZONE_BERLIN) - dt.timedelta(days=14)
+        malo = self._get_market_location(asset_identifier, start, measurand)
 
         energy_data: pd.Series = malo.get_load_profile(
-            start=start_date, measurand=measurand.value
+            start=start, end=end, measurand=measurand.value
         )
         energy_data = energy_data.tz_convert(TIMEZONE_BERLIN)
         energy_data.name = "value"

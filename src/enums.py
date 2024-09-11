@@ -58,10 +58,3 @@ class TransmissionSystemOperator(str, Enum):
     TRANSNET = "transnet"
 
 
-IMPULS_ENERGY_TRADING_TSO_LABELS = {
-    TransmissionSystemOperator.TRANSNET: "TransnetBW",
-    TransmissionSystemOperator.TENNET: "TenneT",
-    TransmissionSystemOperator.AMPRION: "Amprion",
-    TransmissionSystemOperator.HERTZ: "50Hertz",
-}
-

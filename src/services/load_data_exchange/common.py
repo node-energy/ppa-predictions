@@ -35,7 +35,7 @@ class AbstractLoadDataRetriever(abc.ABC):
 
 class AbstractLoadDataSender(abc.ABC):
     @abc.abstractmethod
-    def send_data(self, data: pd.DataFrame):
+    def send_data(self, data: pd.DataFrame, **kwargs):
         ...
 
 

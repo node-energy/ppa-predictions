@@ -1,4 +1,5 @@
 import abc
+import datetime
 
 from src.services.load_data_exchange.email import ForecastEmailSender, AbstractEmailSender
 from src.domain.model import Prediction
@@ -13,11 +14,11 @@ class AbstractDataSender(abc.ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def send_eigenverbrauch_to_impuls_energy_trading(self, data) -> bool:
+    def send_eigenverbrauch_to_impuls_energy_trading(self, data, **kwargs) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def send_residual_long_to_impuls_energy_trading(self, data) -> bool:
+    def send_residual_long_to_impuls_energy_trading(self, data, **kwargs) -> bool:
         raise NotImplementedError()
 
 
@@ -36,10 +37,10 @@ class DataSender(AbstractDataSender):
         successful = self.fahrplanmanagement_sender.send(recipient, file_name, buffer)
         return successful
 
-    def send_eigenverbrauch_to_impuls_energy_trading(self, data) -> bool:
-        successful = self.impuls_energy_trading_eigenverbrauch_sender.send_data(data)
+    def send_eigenverbrauch_to_impuls_energy_trading(self, data, prediction_date: datetime.date) -> bool:
+        successful = self.impuls_energy_trading_eigenverbrauch_sender.send_data(data, prediction_date)
         return successful
 
-    def send_residual_long_to_impuls_energy_trading(self, data) -> bool:
-        successful = self.impuls_energy_trading_residual_long_sender.send_data(data)
+    def send_residual_long_to_impuls_energy_trading(self, data, prediction_date: datetime.date) -> bool:
+        successful = self.impuls_energy_trading_residual_long_sender.send_data(data, prediction_date)
         return successful

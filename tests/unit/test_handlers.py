@@ -11,7 +11,7 @@ from src.services.load_data_exchange.common import AbstractLoadDataRetriever
 from src.services.data_sender import DataSender
 from src.domain import commands
 from src.domain import model
-from src.utils.dataframe_schemas import IetEigenverbrauchSchema, IetResidualLoadSchema
+from src.utils.dataframe_schemas import IetLoadDataSchema
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
 from tests.conftest import ONE_HOUR_BEFORE_GATE_CLOSURE
 from tests.factories import LocationFactory, ProducerFactory, PredictionFactory, PredictionShipmentFactory
@@ -185,21 +185,21 @@ class TestSendPredictions:
         bus.handle(commands.SendAllEigenverbrauchsPredictionsToImpuls())
 
         # ASSERT
-        assert_frame_equal(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data[0], DataFrame[IetEigenverbrauchSchema](
-                index=pd.DatetimeIndex(
-                    data=pd.date_range(
-                        start=location_1.predictions[0].df.index[0].astimezone(TIMEZONE_UTC),
-                        end=location_1.predictions[0].df.index[-1].astimezone(TIMEZONE_UTC),
-                        freq="15min",
-                    ),
-                    name="#timestamp",
-                ),
-                data={
-                    f"{location_1.id}": (location_1.predictions[0].df["value"] / 1000).round(3),
-                    f"{location_2.id}": (location_2.predictions[0].df["value"] / 1000).round(3),
-                }
-            )
-        )
+        for day in pd.date_range("2024, 9, 12", freq="D", periods=8):
+            day = day.to_pydatetime().date()
+
+            df1 = (location_1.predictions[0].df.tz_convert(TIMEZONE_BERLIN) / 1000).round(3)
+            df1 = df1[df1.index.date == day]
+            df1 = df1.tz_convert(TIMEZONE_UTC)
+            df2 = (location_2.predictions[0].df.tz_convert(TIMEZONE_BERLIN) / 1000).round(3)
+            df2 = df2[df2.index.date == day]
+            df2 = df2.tz_convert(TIMEZONE_UTC)
+            df = pd.concat([df1, df2], axis=1)
+            df.index.name = "#timestamp"
+            df.columns = [f"{location_1.residual_long.id}", f"{location_2.residual_long.id}"]
+            df = DataFrame[IetLoadDataSchema](df)
+
+            assert_frame_equal(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data[day], df)
 
         with bus.uow as uow:
             for id_ in [location_1.id, location_2.id]:
@@ -229,20 +229,16 @@ class TestSendPredictions:
         ))
 
         # ASSERT
-        assert_frame_equal(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data[0], DataFrame[IetEigenverbrauchSchema](
-                index=pd.DatetimeIndex(
-                    data=pd.date_range(
-                        start=location.predictions[0].df.index[0].astimezone(TIMEZONE_UTC),
-                        end=location.predictions[0].df.index[-1].astimezone(TIMEZONE_UTC),
-                        freq="15min",
-                    ),
-                    name="#timestamp",
-                ),
-                data={
-                    f"{location.id}": (location.predictions[0].df["value"] / 1000).round(3),
-                }
-            )
-        )
+        for day in pd.date_range("2024, 9, 12", freq="D", periods=8):
+            day = day.to_pydatetime().date()
+
+            df = (location.predictions[0].df.tz_convert(TIMEZONE_BERLIN) / 1000).round(3)
+            df = df[df.index.date == day]
+            df = df.tz_convert(TIMEZONE_UTC)
+            df.index.name = "#timestamp"
+            df.columns = [f"{location.residual_long.id}"]
+            df = DataFrame[IetLoadDataSchema](df)
+            assert_frame_equal(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data[day], df)
 
         with bus.uow as uow:
             prediction = uow.locations.get(location.id).predictions[0]
@@ -286,55 +282,33 @@ class TestSendPredictions:
                 )
             ]
         )
-        location_3 = LocationFactory.build(
-            tso=TransmissionSystemOperator.TENNET,
-            producers=[
-                ProducerFactory.build(prognosis_data_retriever=enums.DataRetriever.IMPULS_ENERGY_TRADING_SFTP)
-            ],
-            predictions=[
-                PredictionFactory.build(
-                    type=enums.PredictionType.RESIDUAL_LONG,
-                    shipments=[
-                        PredictionShipmentFactory.build(
-                            created=ONE_HOUR_BEFORE_GATE_CLOSURE,
-                            receiver=PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
-                        )
-                    ]
-                )
-            ]
-        )
         with bus.uow as uow:
             uow.locations.add(location_1)
             uow.locations.add(location_2)
-            uow.locations.add(location_3)
             uow.commit()
 
         # ACT
         bus.handle(commands.SendAllResidualLongPredictionsToImpuls())
 
         # ASSERT
-        assert_frame_equal(bus.dts.impuls_energy_trading_residual_long_sender.data[0], DataFrame[IetResidualLoadSchema](
-                index=pd.DatetimeIndex(
-                    data=pd.date_range(
-                        start=location_1.predictions[0].df.index[0].astimezone(TIMEZONE_UTC),
-                        end=location_1.predictions[0].df.index[-1].astimezone(TIMEZONE_UTC),
-                        freq="15min",
-                    ),
-                    name="#timestamp",
-                ),
-                data={
-                    "Amprion": (
-                        (location_1.predictions[0].df["value"] + location_2.predictions[0].df["value"]) / 1000
-                    ).round(3),
-                    "TenneT": (location_3.predictions[0].df["value"] / 1000).round(3),
-                    "50Hertz": 0.0,
-                    "TransnetBW": 0.0,
-                }
-            )
-        )
+        for day in pd.date_range("2024, 9, 12", freq="D", periods=8):
+            day = day.to_pydatetime().date()
+
+            df1 = (location_1.predictions[0].df.tz_convert(TIMEZONE_BERLIN) / 1000).round(3)
+            df1 = df1[df1.index.date == day]
+            df1 = df1.tz_convert(TIMEZONE_UTC)
+            df2 = (location_2.predictions[0].df.tz_convert(TIMEZONE_BERLIN) / 1000).round(3)
+            df2 = df2[df2.index.date == day]
+            df2 = df2.tz_convert(TIMEZONE_UTC)
+            df = pd.concat([df1, df2], axis=1)
+            df.index.name = "#timestamp"
+            df.columns = [f"{location_1.residual_long.id}", f"{location_2.residual_long.id}"]
+            df = DataFrame[IetLoadDataSchema](df)
+
+            assert_frame_equal(bus.dts.impuls_energy_trading_residual_long_sender.data[day], df)
 
         with bus.uow as uow:
-            for id_ in [location_1.id, location_2.id, location_3.id]:
+            for id_ in [location_1.id, location_2.id]:
                 prediction = uow.locations.get(id_).predictions[0]
                 assert [s.receiver for s in prediction.shipments] == [
                     PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT,

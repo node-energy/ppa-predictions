@@ -72,6 +72,8 @@ class EnercastSftpDataRetriever(AbstractLoadDataRetriever):
     ) -> DataFrame[TimeSeriesSchema]:
         files = self.sftp_client.download_generation_prediction(asset_identifier, start=start)
         squashed_data = self._squash_files_data(files)
+        if not start and not end:
+            return squashed_data
         mask = (squashed_data.index >= start if start else True) & (squashed_data.index < end if end else True)
         return squashed_data[mask]
 

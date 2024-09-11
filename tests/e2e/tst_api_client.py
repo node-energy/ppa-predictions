@@ -213,7 +213,7 @@ class TestLocation:
 
         # ASSERT
         assert response.status_code == 202
-        assert len(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data) == 1
+        assert len(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data) == 8
 
     def test_enforce_sending_eigenverbrauch_predictions(self, bus, setup_database):
         # ARRANGE
@@ -238,7 +238,7 @@ class TestLocation:
 
         # ASSERT
         assert response.status_code == 202
-        assert len(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data) == 1
+        assert len(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data) == 8
 
     @freeze_time(ONE_HOUR_BEFORE_GATE_CLOSURE)
     def test_send_residual_long_predictions(self, bus, setup_database):
@@ -270,5 +270,5 @@ class TestLocation:
 
         # ASSERT
         assert response.status_code == 202
-        assert len(bus.dts.impuls_energy_trading_residual_long_sender.data) == 1
+        assert len(bus.dts.impuls_energy_trading_residual_long_sender.data) == 8
 

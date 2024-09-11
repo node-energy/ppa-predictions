@@ -3,7 +3,6 @@ from pandera import Field, DataFrameModel, check
 from pandera.typing import Index, Series
 import datetime
 
-from src.enums import IMPULS_ENERGY_TRADING_TSO_LABELS, TransmissionSystemOperator
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
 
 
@@ -19,7 +18,7 @@ class TimeSeriesSchema(DataFrameModel):
         strict = True   # allow no other columns than the ones specified in the schema
 
 
-class IetEigenverbrauchSchema(DataFrameModel):
+class IetLoadDataSchema(DataFrameModel):
     datetime: Index[DatetimeTZDtype(tz=TIMEZONE_UTC)] = Field(
         alias="#timestamp",
         ge=datetime.datetime(2020, 1, 1, tzinfo=TIMEZONE_UTC),
@@ -43,38 +42,3 @@ class IetEigenverbrauchSchema(DataFrameModel):
         # currently there is no site in our portfolio that has a max load of more than 10 MW
         return column.max() < 10
 
-
-class IetResidualLoadSchema(DataFrameModel):
-    class Config:
-        strict = True   # allow no other columns than the ones specified in the schema
-
-    datetime: Index[DatetimeTZDtype(tz=TIMEZONE_UTC)] = Field(
-        alias="#timestamp",
-        ge=datetime.datetime(2020, 1, 1, tzinfo=TIMEZONE_UTC),
-        nullable=False,
-        unique=True
-    )
-    transnetbw: Series = Field(
-        ge=0,
-        nullable=False,
-        alias=IMPULS_ENERGY_TRADING_TSO_LABELS[TransmissionSystemOperator.TRANSNET],
-    )
-    tennet: Series = Field(
-        ge=0,
-        nullable=False,
-        alias=IMPULS_ENERGY_TRADING_TSO_LABELS[TransmissionSystemOperator.TENNET],
-    )
-    amprion: Series = Field(
-        ge=0,
-        nullable=False,
-        alias=IMPULS_ENERGY_TRADING_TSO_LABELS[TransmissionSystemOperator.AMPRION],
-    )
-    hertz: Series = Field(
-        ge=0,
-        nullable=False,
-        alias=IMPULS_ENERGY_TRADING_TSO_LABELS[TransmissionSystemOperator.HERTZ]
-    )
-
-    @check("^(?!#timestamp).*", regex=True)
-    def max_three_digits(cls, column: Series):
-        return column.round(3).equals(column)

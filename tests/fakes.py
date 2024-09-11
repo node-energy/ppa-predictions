@@ -1,3 +1,5 @@
+import datetime
+
 import pandas as pd
 
 from src.services.load_data_exchange.email import AbstractEmailSender
@@ -14,7 +16,7 @@ class FakeEmailSender(AbstractEmailSender):
 
 class FakeIetDataSender(AbstractLoadDataSender):
     def __init__(self):
-        self.data = []
+        self.data = {}
 
-    def send_data(self, data: pd.DataFrame):
-        self.data.append(data)
+    def send_data(self, data: pd.DataFrame, prediction_date: datetime.date):
+        self.data[prediction_date] = data
