@@ -15,32 +15,45 @@ from src.utils.timezone import TIMEZONE_BERLIN
 
 
 class IetSftpClient(SftpMixin):
+    TIMEZONE_FILENAMES = TIMEZONE_BERLIN
+
     def __init__(self):
         self.username: str = settings.iet_sftp_username
         self.password: str = settings.iet_sftp_pass
         self.host: str = settings.iet_sftp_host
 
-    def download_generation_prediction(self, asset_identifier: str) -> list[io.BytesIO]:
+    def download_generation_prediction(
+        self,
+        asset_identifier: str,
+        start: datetime.datetime | None = None,
+        end: datetime.datetime | None = None
+    ) -> list[io.BytesIO]:
         try:
             self._open_sftp()
             self._sftp.chdir("/Erzeugungsprognose")
-            return self._download_relevant_files(asset_identifier)
+            return self._download_relevant_files(
+                asset_identifier,
+                start,
+                end
+            )
         except Exception as exc:
             print(exc)
         finally:
             self._sftp.close()
             self._ssh.close()
 
-    def _download_relevant_files(self, asset_identifier: str) -> list[io.BytesIO]:
+    def _download_relevant_files(
+            self, asset_identifier: str, start: datetime.datetime | None, end: datetime.datetime | None
+    ) -> list[io.BytesIO]:
         file_names: list[str] = []
         for file_name in self._sftp.listdir():
             match = iet_generation_file_name_match(file_name)
-            if match and match["asset_id"] == asset_identifier:
+            if match and match["asset_id"] == asset_identifier and self._prognosis_date_overlaps_with_time_range(
+                datetime.datetime.strptime(match["prognosis_date"], "%Y%m%d").date(), start, end
+            ):
                 file_names.append(file_name)
 
         file_objs = []
-        # todo this is pretty slow, we could think about only downloading files where the timestamp in the file name
-        # indicates that it contains data for the relevant time period
         for file_name in file_names:
             file_obj = io.BytesIO()
             file_obj.name = file_name
@@ -69,6 +82,25 @@ class IetSftpClient(SftpMixin):
             self._sftp.close()
             self._ssh.close()
 
+    def _prognosis_date_overlaps_with_time_range(
+        self,
+        prognosis_date: datetime.date,
+        start: datetime.datetime | None,
+        end: datetime.datetime | None
+    ) -> bool:
+        if start is None and end is None:
+            return True
+
+        start_included = True
+        end_included = True
+        if start:
+            prog_end = datetime.datetime.combine(prognosis_date, datetime.time.max, tzinfo=self.TIMEZONE_FILENAMES)
+            start_included = start <= prog_end
+        if end:
+            prog_start = datetime.datetime.combine(prognosis_date, datetime.time.min, tzinfo=self.TIMEZONE_FILENAMES)
+            end_included = end >= prog_start
+        return start_included and end_included
+
 
 class IetSftpGenerationDataRetriever(AbstractLoadDataRetriever):
     def __init__(self, sftp_client: SftpDownloadGenerationPrediction = IetSftpClient()):
@@ -78,9 +110,13 @@ class IetSftpGenerationDataRetriever(AbstractLoadDataRetriever):
         self,
         asset_identifier: str,
         measurand: Measurand,
+        start: datetime.datetime | None,
+        end: datetime.datetime | None
     ) -> DataFrame[TimeSeriesSchema]:
-        files = self.sftp_client.download_generation_prediction(asset_identifier)
-        return self._squash_files_data(files)
+        files = self.sftp_client.download_generation_prediction(asset_identifier, start=start, end=end)
+        squashed_data = self._squash_files_data(files)
+        mask = (squashed_data.index >= start if start else True) & (squashed_data.index < end if end else True)
+        return squashed_data[mask]
 
     def _squash_files_data(self, files: list[io.BytesIO]) -> DataFrame[TimeSeriesSchema]:
         sorted_files = sorted(files, key=cmp_to_key(self._compare_file_names), reverse=True)

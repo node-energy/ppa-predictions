@@ -1,4 +1,5 @@
 import abc
+import datetime
 import io
 from typing import Protocol
 
@@ -14,11 +15,21 @@ from src.utils.dataframe_schemas import TimeSeriesSchema
 class AbstractLoadDataRetriever(abc.ABC):
     @pandera.check_types
     def get_data(
-        self, asset_identifier: str, measurand
+        self,
+        asset_identifier: str,
+        measurand: Measurand,
+        start: datetime.datetime | None = None,
+        end: datetime.datetime | None = None
     ) -> DataFrame[TimeSeriesSchema]:
-        return self._get_data(asset_identifier, measurand)
+        return self._get_data(asset_identifier, measurand, start, end)
 
-    def _get_data(self, asset_identifier1: str, measurand: Measurand) -> DataFrame[TimeSeriesSchema]:
+    def _get_data(
+        self,
+        asset_identifier1: str,
+        measurand: Measurand,
+        start: datetime.datetime | None,
+        end: datetime.datetime | None
+    ) -> DataFrame[TimeSeriesSchema]:
         raise NotImplementedError()
 
 
@@ -50,7 +61,7 @@ class SftpClient(Protocol):
 
 
 class SftpDownloadGenerationPrediction(SftpClient, Protocol):
-    def download_generation_prediction(self, asset_identifier: str) -> list[io.BytesIO]:
+    def download_generation_prediction(self, asset_identifier: str, **kwargs) -> list[io.BytesIO]:
         ...
 
 

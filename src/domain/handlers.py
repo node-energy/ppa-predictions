@@ -156,7 +156,10 @@ def calculate_predictions(
                         model.Prediction(
                             df=data_retriever.get_data(
                                 asset_identifier=asset_identifier,
-                                measurand=Measurand.NEGATIVE
+                                measurand=Measurand.NEGATIVE,
+                                start=datetime.datetime.combine(
+                                    start_date, datetime.time.min, tzinfo=TIMEZONE_BERLIN
+                                ),
                             ),
                             type=src.enums.PredictionType.PRODUCTION
                         )
