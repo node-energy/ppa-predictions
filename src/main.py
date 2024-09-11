@@ -64,3 +64,13 @@ async def root():
 def fetch_energy_data():
     bus = MessageBus()
     bus.handle(commands.UpdatePredictAll())
+
+
+@app.on_event("startup")  # TODO replace with APScheduler
+@repeat_at(settings.impuls_energy_trading_cron, logger=logger)
+def send_data_to_impuls_energy_trading():
+    bus = MessageBus()
+    # this requires that the historical data was already retrieved
+    # and the predictions were calculated on the same day
+    bus.handle(commands.SendAllEigenverbrauchsPredictionsToImpuls())
+    bus.handle(commands.SendAllResidualLongPredictionsToImpuls())
