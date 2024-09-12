@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     mail_recipient_cons: str = "verbrauchsprognosen@ppa-mailbox.node.energy"
     mail_recipient_prod: str = "erzeugungsprognosen@ppa-mailbox.node.energy"
     update_cron: str = "45 10 * * *"
+    impuls_energy_trading_cron: str = "5 12 * * *"  # after 12 am local time to make sure we send the latest predictions that were respected for fahrplanmanagement
     send_predictions_enabled: bool = False
     api_key: str = "node"
     enercast_ftp_username: str = "node-energy"

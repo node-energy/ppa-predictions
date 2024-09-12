@@ -9,13 +9,13 @@ from pandera.typing import DataFrame
 
 from src.domain import model
 from src import enums
-from src.domain.model import PROGNOSIS_HORIZON_DAYS
 from src.enums import PredictionReceiver
 from src.utils.dataframe_schemas import TimeSeriesSchema
 from src.utils.timezone import TIMEZONE_BERLIN
 
 faker = Faker("de_DE")
 
+PROGNOSIS_HORIZON_DAYS = 7
 TIMESERIES_START = datetime.datetime.combine(datetime.date.today(), datetime.time(0, 0), tzinfo=TIMEZONE_BERLIN) + datetime.timedelta(days=1)
 TIMESERIES_END = datetime.datetime.combine(
     (TIMESERIES_START + datetime.timedelta(days=PROGNOSIS_HORIZON_DAYS)).date(), datetime.time(23, 45), tzinfo=TIMEZONE_BERLIN
