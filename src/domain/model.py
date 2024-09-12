@@ -3,14 +3,12 @@ from __future__ import annotations
 import abc
 import uuid
 import pandas as pd
-from datetime import datetime, date, timedelta, time
+from datetime import datetime, date, time
 from typing import Optional
 from dataclasses import dataclass, field
 
 from src.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver, TransmissionSystemOperator
-from src.utils.timezone import TIMEZONE_BERLIN, utc_now
-
-PROGNOSIS_HORIZON_DAYS = 7
+from src.utils.timezone import utc_now
 
 
 @dataclass
@@ -217,11 +215,6 @@ class Prediction(Entity):
 
     def __gt__(self, other: Prediction):
         return self.created > other.created
-
-    def covers_prediction_horizon(self, reference_date: date) -> bool:
-        prediction_horizon_start = datetime.combine(reference_date + timedelta(days=1), time(0, 0), tzinfo=TIMEZONE_BERLIN)
-        prediction_horizon_end = datetime.combine(prediction_horizon_start + timedelta(days=PROGNOSIS_HORIZON_DAYS), time(23, 45), tzinfo=TIMEZONE_BERLIN)
-        return self.df.first_valid_index()<= prediction_horizon_start and self.df.last_valid_index() >= prediction_horizon_end
 
 
 @dataclass(kw_only=True)

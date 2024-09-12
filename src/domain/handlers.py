@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import datetime
 import uuid
-from collections import defaultdict
+from collections import OrderedDict
 from typing import Optional
 from uuid import UUID
 
@@ -222,13 +222,7 @@ def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
         predictions = _get_predictions_for_impuls_energy_trading(
             uow, PredictionType.CONSUMPTION, cmd.send_even_if_not_sent_to_internal_fahrplanmanagement
         )
-        df = pd.concat(predictions, axis=1)
-        df = df.tz_convert(TIMEZONE_UTC)
-        df.index.name = "#timestamp"
-        df = df.div(1000)  # convert from kW to MW
-        df = df.round(3)  # todo clarify for which unit the 3 digits rule applies
-        for date, daily_df in split_df_by_day(df, TIMEZONE_FILENAMES):
-            daily_df = DataFrame[IetLoadDataSchema](daily_df)
+        for date, daily_df in _get_daily_dfs_from_predictions(predictions).items():
             dts.send_eigenverbrauch_to_impuls_energy_trading(daily_df, prediction_date=date)
         uow.commit()
 
@@ -245,15 +239,38 @@ def send_residual_long_predictions_to_impuls_energy_trading(
             cmd.send_even_if_not_sent_to_internal_fahrplanmanagement,
         )
 
-        df = pd.concat(predictions, axis=1)
-        df = df.tz_convert(TIMEZONE_UTC)
-        df.index.name = "#timestamp"
-        df = df.div(1000)  # convert from kW to MW
-        df = df.round(3)  # todo clarify for which unit the 3 digits rule applies
-        for date, daily_df in split_df_by_day(df, TIMEZONE_FILENAMES):
-            daily_df = DataFrame[IetLoadDataSchema](daily_df)
+        for date, daily_df in _get_daily_dfs_from_predictions(predictions).items():
             dts.send_residual_long_to_impuls_energy_trading(daily_df, prediction_date=date)
         uow.commit()
+
+
+def _get_daily_dfs_from_predictions(
+        predictions: [DataFrame[TimeSeriesSchema]]
+) -> OrderedDict[datetime.date, DataFrame[IetLoadDataSchema]]:
+    df = pd.concat(predictions, axis=1)
+    df = df.tz_convert(TIMEZONE_UTC)
+    df.index.name = "#timestamp"
+    df = df.div(1000)  # convert from kW to MW
+    df = df.round(3)  # todo clarify for which unit the 3 digits rule applies
+    dfs_by_day = split_df_by_day(df, TIMEZONE_FILENAMES)
+
+    daily_dfs = OrderedDict()
+    for date in _dates_in_prognosis_horizon_impuls_energy_trading():
+        daily_df = dfs_by_day.get(date)
+        if not daily_df:
+            logger.error(f"Found no data for date {date} to send to Impuls Energy Trading")
+            continue
+        daily_df = DataFrame[IetLoadDataSchema](daily_df)
+        daily_dfs[date] = daily_df
+    return daily_dfs
+
+
+def _dates_in_prognosis_horizon_impuls_energy_trading() -> [datetime.date]:
+    dates_in_prognosis_horizon = []
+    tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+    for n in range(6):
+        dates_in_prognosis_horizon.append(tomorrow + datetime.timedelta(days=n))
+    return dates_in_prognosis_horizon
 
 
 def _get_predictions_for_impuls_energy_trading(
@@ -278,8 +295,8 @@ def _get_predictions_for_impuls_energy_trading(
             receiver=mandatory_previous_receivers,
             sent_before=sent_before,
         )
-        if prediction is None or not prediction.covers_prediction_horizon(reference_date=datetime.date.today()):
-            logger.error(f"Could not get valid eigenverbrauch prediction for location {location.alias}")
+        if prediction is None:
+            logger.error(f"Could not get valid prediction for location {location.alias}")
             continue
         prediction.shipments.append(
             PredictionShipment(
