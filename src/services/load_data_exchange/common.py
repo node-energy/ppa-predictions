@@ -1,4 +1,5 @@
 import abc
+import datetime
 import io
 from typing import Protocol
 
@@ -14,17 +15,27 @@ from src.utils.dataframe_schemas import TimeSeriesSchema
 class AbstractLoadDataRetriever(abc.ABC):
     @pandera.check_types
     def get_data(
-        self, asset_identifier: str, measurand
+        self,
+        asset_identifier: str,
+        measurand: Measurand,
+        start: datetime.datetime | None = None,
+        end: datetime.datetime | None = None
     ) -> DataFrame[TimeSeriesSchema]:
-        return self._get_data(asset_identifier, measurand)
+        return self._get_data(asset_identifier, measurand, start, end)
 
-    def _get_data(self, asset_identifier1: str, measurand: Measurand) -> DataFrame[TimeSeriesSchema]:
+    def _get_data(
+        self,
+        asset_identifier1: str,
+        measurand: Measurand,
+        start: datetime.datetime | None,
+        end: datetime.datetime | None
+    ) -> DataFrame[TimeSeriesSchema]:
         raise NotImplementedError()
 
 
 class AbstractLoadDataSender(abc.ABC):
     @abc.abstractmethod
-    def send_data(self, data: pd.DataFrame):
+    def send_data(self, data: pd.DataFrame, **kwargs):
         ...
 
 
@@ -50,12 +61,17 @@ class SftpClient(Protocol):
 
 
 class SftpDownloadGenerationPrediction(SftpClient, Protocol):
-    def download_generation_prediction(self, asset_identifier: str) -> list[io.BytesIO]:
+    def download_generation_prediction(self, asset_identifier: str, **kwargs) -> list[io.BytesIO]:
         ...
 
 
 class SftpUploadEigenverbrauch(SftpClient, Protocol):
     def upload_eigenverbrauch(self, file_obj: io.BytesIO):
+        ...
+
+
+class SftpUploadResidualLong(SftpClient, Protocol):
+    def upload_residual_long(self, file_obj: io.BytesIO):
         ...
 
 

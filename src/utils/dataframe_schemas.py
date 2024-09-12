@@ -18,7 +18,7 @@ class TimeSeriesSchema(DataFrameModel):
         strict = True   # allow no other columns than the ones specified in the schema
 
 
-class IetEigenverbrauchSchema(DataFrameModel):
+class IetLoadDataSchema(DataFrameModel):
     datetime: Index[DatetimeTZDtype(tz=TIMEZONE_UTC)] = Field(
         alias="#timestamp",
         ge=datetime.datetime(2020, 1, 1, tzinfo=TIMEZONE_UTC),
@@ -41,3 +41,4 @@ class IetEigenverbrauchSchema(DataFrameModel):
         # rudimentary check that the passed data is in unit MW
         # currently there is no site in our portfolio that has a max load of more than 10 MW
         return column.max() < 10
+

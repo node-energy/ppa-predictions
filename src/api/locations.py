@@ -9,7 +9,7 @@ from .common import get_bus, BasePagination
 from src.infrastructure.message_bus import MessageBus
 from src.domain import commands
 from src.domain.model import Location as DLocation
-from src.enums import DataRetriever, State
+from src.enums import DataRetriever, State, TransmissionSystemOperator
 
 router = APIRouter(prefix="/locations")
 
@@ -21,6 +21,7 @@ class MarketLocation(BaseModel):
 
 class Producer(BaseModel):
     id: Optional[uuid.UUID] = None
+    name: str
     market_location: MarketLocation
     prognosis_data_retriever: DataRetriever
 
@@ -34,6 +35,7 @@ class Location(BaseModel):
     id: Optional[uuid.UUID] = None
     state: str
     alias: Optional[str] = None
+    tso: TransmissionSystemOperator
     residual_short: MarketLocation
     residual_long: Optional[MarketLocation] = None
     producers: Optional[list[Producer]] = []
@@ -42,14 +44,16 @@ class Location(BaseModel):
     @classmethod
     def from_domain(cls, location: DLocation):
         return cls(
+            id=location.id,
             state=location.state,
             alias=location.alias,
-            id=location.id,
+            tso=location.tso.value,
             residual_short=MarketLocation(id=location.residual_short.id, number=location.residual_short.number),
             residual_long=MarketLocation(id=location.residual_long.id, number=location.residual_long.number) if location.residual_long else None,
             producers=[
                 Producer(
                     id=p.id,
+                    name=p.name,
                     market_location=MarketLocation(id=p.market_location.id, number=p.market_location.number),
                     prognosis_data_retriever=DataRetriever(p.prognosis_data_retriever)
                 ) for p in location.producers
@@ -63,7 +67,7 @@ class Location(BaseModel):
         )
 
 
-class SendEigenverbrauchPredictionToImpulsConfig(BaseModel):
+class SendPredictionToImpulsConfig(BaseModel):
     send_even_if_not_sent_to_internal_fahrplanmanagement: Optional[bool] = None
 
 
@@ -102,6 +106,7 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
             id=fa_location.id,
             state=state,
             alias=fa_location.alias,
+            tso=fa_location.tso,
             residual_short={
                 "id": fa_location.residual_short.id,
                 "number": fa_location.residual_short.number,
@@ -112,6 +117,7 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
             } if fa_location.residual_long else None,
             producers=[{
                 "id": producer.id,
+                "name": producer.name,
                 "market_location_id": producer.market_location.id,
                 "market_location_number": producer.market_location.number,
                 "prognosis_data_retriever": producer.prognosis_data_retriever
@@ -148,6 +154,7 @@ def update_location_settings(
                 id=str(new_location.id),
                 state=new_location.state,
                 alias=new_location.alias,
+                tso=new_location.tso,
                 residual_short=MarketLocation(number=new_location.residual_short.number),
                 settings=LocationSettings(
                     active_from=new_location.settings.active_from,
@@ -223,9 +230,20 @@ def send_updated_predictions_for_all(bus: Annotated[MessageBus, Depends(get_bus)
 @router.post("/send_eigenverbrauchs_predictions_impuls")
 def send_all_eigenverbrauch_predictions_to_impuls_energy_trading(
     bus: Annotated[MessageBus, Depends(get_bus)],
-    fa_send_eigenverbrauch_prediction_to_impuls_config: SendEigenverbrauchPredictionToImpulsConfig
+    fa_send_prediction_to_impuls_config: SendPredictionToImpulsConfig
 ):
     bus.handle(commands.SendAllEigenverbrauchsPredictionsToImpuls(
-        fa_send_eigenverbrauch_prediction_to_impuls_config.send_even_if_not_sent_to_internal_fahrplanmanagement
+        fa_send_prediction_to_impuls_config.send_even_if_not_sent_to_internal_fahrplanmanagement
+    ))
+    return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.post("/send_residual_long_predictions_impuls")
+def send_all_residual_long_predictions_to_impuls_energy_trading(
+    bus: Annotated[MessageBus, Depends(get_bus)],
+    fa_send_prediction_to_impuls_config: SendPredictionToImpulsConfig
+):
+    bus.handle(commands.SendAllResidualLongPredictionsToImpuls(
+        fa_send_prediction_to_impuls_config.send_even_if_not_sent_to_internal_fahrplanmanagement
     ))
     return Response(status_code=status.HTTP_202_ACCEPTED)

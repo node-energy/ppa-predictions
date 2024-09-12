@@ -14,34 +14,42 @@ from src.utils.dataframe_schemas import TimeSeriesSchema
 from src.utils.timezone import TIMEZONE_BERLIN
 
 
+TIMESTAMP_FORMAT = "%Y-%m-%d-%H-%M-%S"
+
+
+def enercast_generation_file_name_match(file_name: str) -> re.Match:
+    pattern = re.compile("(?P<asset_identifier>\d+)_.*_(?P<timestamp>\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}).csv")
+    return re.fullmatch(pattern, file_name)
+
+
 class EnercastSftpClient(SftpMixin):
     def __init__(self):
         self.username: str = settings.enercast_ftp_username
         self.password: str = settings.enercast_ftp_pass
         self.host: str = settings.enercast_ftp_host
 
-    def download_generation_prediction(self, asset_identifier: str) -> list[io.BytesIO]:
+    def download_generation_prediction(self, asset_identifier: str, start: datetime.datetime | None = None) -> list[io.BytesIO]:
         try:
             self._open_sftp()
             self._sftp.chdir("/forecasts")
-            return self._download_relevant_files(asset_identifier)
+            return self._download_relevant_files(asset_identifier, start)
         except Exception as exc:
             print(exc)
         finally:
             self._sftp.close()
             self._ssh.close()
 
-    def _download_relevant_files(self, asset_identifier: str) -> list[io.BytesIO]:
+    def _download_relevant_files(self, asset_identifier: str, start: datetime.datetime | None) -> list[io.BytesIO]:
         file_names: list[str] = []
         for file_name in self._sftp.listdir():
-            if file_name.endswith(".csv") and file_name.startswith(
-                    asset_identifier
-            ):
+            match = enercast_generation_file_name_match(file_name)
+            if match and match["asset_identifier"] == asset_identifier:
+                if start and datetime.datetime.strptime(match["timestamp"], TIMESTAMP_FORMAT) + datetime.timedelta(days=7) < start:
+                    continue
+                file_names.append(file_name)
                 file_names.append(file_name)
 
         file_objs = []
-        # todo this is pretty slow, we could think about only downloading files where the timestamp in the file name
-        # indicates that it contains data for the relevant time period
         for file_name in file_names:
             file_obj = io.BytesIO()
             file_obj.name = file_name
@@ -55,9 +63,19 @@ class EnercastSftpDataRetriever(AbstractLoadDataRetriever):
     def __init__(self, sftp_client: SftpDownloadGenerationPrediction = EnercastSftpClient()):
         self.sftp_client = sftp_client
 
-    def _get_data(self, asset_identifier: str, measurand: Measurand) -> DataFrame[TimeSeriesSchema]:
-        files = self.sftp_client.download_generation_prediction(asset_identifier)
-        return self._squash_files_data(files)
+    def _get_data(
+        self,
+        asset_identifier: str,
+        measurand: Measurand,
+        start: datetime.datetime,
+        end: datetime.datetime
+    ) -> DataFrame[TimeSeriesSchema]:
+        files = self.sftp_client.download_generation_prediction(asset_identifier, start=start)
+        squashed_data = self._squash_files_data(files)
+        if not start and not end:
+            return squashed_data
+        mask = (squashed_data.index >= start if start else True) & (squashed_data.index < end if end else True)
+        return squashed_data[mask]
 
     def _squash_files_data(self, files: list[io.BytesIO]) -> DataFrame[TimeSeriesSchema]:
         sorted_files = sorted(files, key=cmp_to_key(self._compare_file_names), reverse=True)
@@ -85,12 +103,10 @@ class EnercastSftpDataRetriever(AbstractLoadDataRetriever):
         naming convention is <asset_name>_<timestamp>.csv
         timestamp is formatted as: %Y-%m-%d-%H-%M-%S
         """
-        pattern = re.compile(".*_(?P<timestamp>(\d{4})(-\d{2})(-\d{2})(-\d{2})-(\d{2})-(\d{2})).csv")
-        format_ = "%Y-%m-%d-%H-%M-%S"
-        timestamp_1 = re.fullmatch(pattern, file_1.name)["timestamp"]
-        timestamp_1 = datetime.datetime.strptime(timestamp_1, format_)
-        timestamp_2 = re.fullmatch(pattern, file_2.name)["timestamp"]
-        timestamp_2 = datetime.datetime.strptime(timestamp_2, format_)
+        timestamp_1 = enercast_generation_file_name_match(file_1.name)["timestamp"]
+        timestamp_1 = datetime.datetime.strptime(timestamp_1, TIMESTAMP_FORMAT)
+        timestamp_2 = enercast_generation_file_name_match(file_2.name)["timestamp"]
+        timestamp_2 = datetime.datetime.strptime(timestamp_2, TIMESTAMP_FORMAT)
         if timestamp_1 < timestamp_2:
             return -1
         if timestamp_1 > timestamp_2:

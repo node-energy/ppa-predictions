@@ -192,11 +192,13 @@ class LocationRepository(
             if db_component.type == ComponentType.CONSUMER.value:
                 return model.Consumer(
                     id=db_component.id,
+                    name=db_component.name,
                     market_location=market_location_to_domain(db_component.market_location),
                 )
             else:
                 return model.Producer(
                     id=db_component.id,
+                    name=db_component.name,
                     market_location=market_location_to_domain(db_component.market_location),
                     prognosis_data_retriever=DataRetriever(db_component.prognosis_data_retriever),
                 )
@@ -227,6 +229,7 @@ class LocationRepository(
             id=db_obj.id,
             settings=settings_to_domain(db_obj.settings),
             state=state,
+            tso=src.enums.TransmissionSystemOperator(db_obj.tso),
             alias=db_obj.alias,
             residual_short=market_location_to_domain(db_obj.residual_short),
             residual_long=market_location_to_domain(db_obj.residual_long),
@@ -273,6 +276,7 @@ class LocationRepository(
             type = ComponentType.PRODUCER.value if isinstance(component, model.Producer) else ComponentType.CONSUMER.value
             return DBComponent(
                 id=component.id,
+                name=component.name,
                 type=type,
                 market_location=market_location_to_db(component.market_location),
                 prognosis_data_retriever=component.prognosis_data_retriever.value if hasattr(component, "prognosis_data_retriever") else None,
@@ -303,6 +307,7 @@ class LocationRepository(
             id=domain_obj.id,
             settings=settings_to_db(domain_obj.id, domain_obj.settings),
             state=domain_obj.state.value,
+            tso=domain_obj.tso.value,
             alias=domain_obj.alias,
             residual_short=market_location_to_db(domain_obj.residual_short),
             residual_long=market_location_to_db(domain_obj.residual_long),

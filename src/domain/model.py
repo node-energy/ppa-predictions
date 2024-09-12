@@ -7,7 +7,7 @@ from datetime import datetime, date, timedelta, time
 from typing import Optional
 from dataclasses import dataclass, field
 
-from src.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver
+from src.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver, TransmissionSystemOperator
 from src.utils.timezone import TIMEZONE_BERLIN, utc_now
 
 PROGNOSIS_HORIZON_DAYS = 7
@@ -51,6 +51,7 @@ class Location(AggregateRoot):
     __hash__ = AggregateRoot.__hash__
     settings: LocationSettings
     state: State
+    tso: TransmissionSystemOperator
     alias: Optional[str] = None
     producers: list[Producer] = field(default_factory=list)
     residual_long: Optional[MarketLocation] = None
@@ -120,6 +121,9 @@ class Location(AggregateRoot):
         )
         short_prediction_df[short_prediction_df < 0] = 0
         short_prediction_df = clip_to_time_range(short_prediction_df)
+        short_prediction_df = short_prediction_df[
+            short_prediction_df.first_valid_index():short_prediction_df.last_valid_index()
+        ]
         self.predictions.append(
             Prediction(df=short_prediction_df, type=PredictionType.RESIDUAL_SHORT)
         )
@@ -128,6 +132,9 @@ class Location(AggregateRoot):
             long_prediction_df = total_production_df - total_consumption_df
             long_prediction_df[long_prediction_df < 0] = 0
             long_prediction_df = clip_to_time_range(long_prediction_df)
+            long_prediction_df = long_prediction_df[
+                long_prediction_df.first_valid_index():long_prediction_df.last_valid_index()
+            ]
             self.predictions.append(
                 Prediction(df=long_prediction_df, type=PredictionType.RESIDUAL_LONG)
             )

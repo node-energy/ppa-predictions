@@ -1,9 +1,11 @@
 import abc
+import datetime
 
 from src.services.load_data_exchange.email import ForecastEmailSender, AbstractEmailSender
 from src.domain.model import Prediction
 from src.services.load_data_exchange.common import AbstractLoadDataSender
-from src.services.load_data_exchange.impuls_energy_trading import IetSftpEigenverbrauchDataSender
+from src.services.load_data_exchange.impuls_energy_trading import IetSftpEigenverbrauchDataSender, \
+    IetSftpResidualLongDataSender
 
 
 class AbstractDataSender(abc.ABC):
@@ -12,11 +14,11 @@ class AbstractDataSender(abc.ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def send_eigenverbrauch_to_impuls_energy_trading(self, data) -> bool:
+    def send_eigenverbrauch_to_impuls_energy_trading(self, data, **kwargs) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def send_residual_long_to_impuls_energy_trading(self, data) -> bool:
+    def send_residual_long_to_impuls_energy_trading(self, data, **kwargs) -> bool:
         raise NotImplementedError()
 
 
@@ -25,7 +27,7 @@ class DataSender(AbstractDataSender):
         self,
         fahrplanmanagement_sender: AbstractEmailSender = ForecastEmailSender(),
         impuls_energy_trading_eigenverbrauch_sender: AbstractLoadDataSender = IetSftpEigenverbrauchDataSender(),
-        impuls_energy_trading_residual_long_sender: AbstractLoadDataSender = None, # todo
+        impuls_energy_trading_residual_long_sender: AbstractLoadDataSender = IetSftpResidualLongDataSender()
     ):
         self.fahrplanmanagement_sender = fahrplanmanagement_sender
         self.impuls_energy_trading_eigenverbrauch_sender = impuls_energy_trading_eigenverbrauch_sender
@@ -35,10 +37,10 @@ class DataSender(AbstractDataSender):
         successful = self.fahrplanmanagement_sender.send(recipient, file_name, buffer)
         return successful
 
-    def send_eigenverbrauch_to_impuls_energy_trading(self, data) -> bool:
-        successful = self.impuls_energy_trading_eigenverbrauch_sender.send_data(data)
+    def send_eigenverbrauch_to_impuls_energy_trading(self, data, prediction_date: datetime.date) -> bool:
+        successful = self.impuls_energy_trading_eigenverbrauch_sender.send_data(data, prediction_date)
         return successful
 
-    def send_residual_long_to_impuls_energy_trading(self, data) -> bool:
-        successful = self.impuls_energy_trading_residual_long_sender.send_data(data)
+    def send_residual_long_to_impuls_energy_trading(self, data, prediction_date: datetime.date) -> bool:
+        successful = self.impuls_energy_trading_residual_long_sender.send_data(data, prediction_date)
         return successful

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import datetime
 import uuid
+from collections import defaultdict
 from typing import Optional
 from uuid import UUID
 
@@ -17,9 +18,11 @@ from src.domain import model
 from src.domain.model import MarketLocation, PredictionShipment
 from src.infrastructure import unit_of_work
 from src.services import predictor, data_sender
-from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP
-from src.utils.dataframe_schemas import IetEigenverbrauchSchema, TimeSeriesSchema
+from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP, LocationAndProducer
+from src.services.load_data_exchange.impuls_energy_trading import TIMEZONE_FILENAMES
+from src.utils.dataframe_schemas import IetLoadDataSchema, TimeSeriesSchema
 from src.utils.external_schedules import GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
+from src.utils.split_df_by_day import split_df_by_day
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
 from src.enums import Measurand, DataRetriever, PredictionType
 from src import enums
@@ -150,12 +153,15 @@ def calculate_predictions(
                 data_retriever_config = DATA_RETRIEVER_MAP[location.producers[0].prognosis_data_retriever]
                 data_retriever = data_retriever_config.data_retriever()
                 for producer in location.producers:
-                    asset_identifier = data_retriever_config.asset_identifier_func(producer)
+                    asset_identifier = data_retriever_config.asset_identifier_func(LocationAndProducer(location, producer))
                     location.add_prediction(
                         model.Prediction(
                             df=data_retriever.get_data(
                                 asset_identifier=asset_identifier,
-                                measurand=Measurand.NEGATIVE
+                                measurand=Measurand.NEGATIVE,
+                                start=datetime.datetime.combine(
+                                    start_date, datetime.time.min, tzinfo=TIMEZONE_BERLIN
+                                ),
                             ),
                             type=src.enums.PredictionType.PRODUCTION
                         )
@@ -212,45 +218,80 @@ def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
     uow: unit_of_work.AbstractUnitOfWork,
     dts: data_sender.AbstractDataSender
 ):
-    eigenverbrauchs_predictions: [DataFrame[TimeSeriesSchema]] = []
     with uow:
-        locations: [model.Location] = uow.locations.get_all()
-        for location in locations:
-            if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
-                continue
-            if cmd.send_even_if_not_sent_to_internal_fahrplanmanagement:
-                mandatory_previous_receivers = None
-                sent_before = None
-            else:
-                mandatory_previous_receivers = enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
-                sent_before = GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
-
-            eigenverbrauch_prediction = location.get_most_recent_prediction(
-                prediction_type=PredictionType.CONSUMPTION,
-                receiver=mandatory_previous_receivers,
-                sent_before=sent_before,
-            )
-            if eigenverbrauch_prediction is None or not eigenverbrauch_prediction.covers_prediction_horizon(reference_date=datetime.date.today()):
-                logger.error(f"Could not get valid eigenverbrauch prediction for location {location.alias}")
-                continue
-            eigenverbrauch_prediction.shipments.append(
-                PredictionShipment(
-                    receiver=enums.PredictionReceiver.IMPULS_ENERGY_TRADING
-                )
-            )
-            uow.locations.update(location)
-            df = eigenverbrauch_prediction.df.copy()
-            TimeSeriesSchema.validate(df)
-            df.columns = [str(location.id)]
-            eigenverbrauchs_predictions.append(df)
-        df = pd.concat(eigenverbrauchs_predictions, axis=1)
+        predictions = _get_predictions_for_impuls_energy_trading(
+            uow, PredictionType.CONSUMPTION, cmd.send_even_if_not_sent_to_internal_fahrplanmanagement
+        )
+        df = pd.concat(predictions, axis=1)
         df = df.tz_convert(TIMEZONE_UTC)
         df.index.name = "#timestamp"
         df = df.div(1000)  # convert from kW to MW
         df = df.round(3)  # todo clarify for which unit the 3 digits rule applies
-        df = DataFrame[IetEigenverbrauchSchema](df)
-        dts.send_eigenverbrauch_to_impuls_energy_trading(df)
+        for date, daily_df in split_df_by_day(df, TIMEZONE_FILENAMES):
+            daily_df = DataFrame[IetLoadDataSchema](daily_df)
+            dts.send_eigenverbrauch_to_impuls_energy_trading(daily_df, prediction_date=date)
         uow.commit()
+
+
+def send_residual_long_predictions_to_impuls_energy_trading(
+    cmd: commands.SendAllEigenverbrauchsPredictionsToImpuls,
+    uow: unit_of_work.AbstractUnitOfWork,
+    dts: data_sender.AbstractDataSender
+):
+    with uow:
+        predictions = _get_predictions_for_impuls_energy_trading(
+            uow,
+            PredictionType.RESIDUAL_LONG,
+            cmd.send_even_if_not_sent_to_internal_fahrplanmanagement,
+        )
+
+        df = pd.concat(predictions, axis=1)
+        df = df.tz_convert(TIMEZONE_UTC)
+        df.index.name = "#timestamp"
+        df = df.div(1000)  # convert from kW to MW
+        df = df.round(3)  # todo clarify for which unit the 3 digits rule applies
+        for date, daily_df in split_df_by_day(df, TIMEZONE_FILENAMES):
+            daily_df = DataFrame[IetLoadDataSchema](daily_df)
+            dts.send_residual_long_to_impuls_energy_trading(daily_df, prediction_date=date)
+        uow.commit()
+
+
+def _get_predictions_for_impuls_energy_trading(
+    uow: unit_of_work.AbstractUnitOfWork,
+    prediction_type: PredictionType,
+    send_even_if_not_sent_to_internal_fahrplanmanagement: bool = False,
+) -> [DataFrame[TimeSeriesSchema]]:
+    predictions: [DataFrame[TimeSeriesSchema]] = []
+    locations: [model.Location] = uow.locations.get_all()
+    for location in locations:
+        if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
+            continue
+        if send_even_if_not_sent_to_internal_fahrplanmanagement:
+            mandatory_previous_receivers = None
+            sent_before = None
+        else:
+            mandatory_previous_receivers = enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+            sent_before = GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
+
+        prediction = location.get_most_recent_prediction(
+            prediction_type=prediction_type,
+            receiver=mandatory_previous_receivers,
+            sent_before=sent_before,
+        )
+        if prediction is None or not prediction.covers_prediction_horizon(reference_date=datetime.date.today()):
+            logger.error(f"Could not get valid eigenverbrauch prediction for location {location.alias}")
+            continue
+        prediction.shipments.append(
+            PredictionShipment(
+                receiver=enums.PredictionReceiver.IMPULS_ENERGY_TRADING
+            )
+        )
+        uow.locations.update(location)
+        df = prediction.df.copy()
+        TimeSeriesSchema.validate(df)
+        df.columns = [str(location.residual_long.id)]
+        predictions.append(df)
+    return predictions
 
 
 def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfWork):
@@ -261,7 +302,7 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
                 id_=p["market_location_id"], number=p["market_location_number"], measurand=src.enums.Measurand.NEGATIVE,
             )
             producer = _build_producer(
-                id_=p["id"], market_location=market_location, prognosis_data_retriever=p["prognosis_data_retriever"]
+                id_=p["id"], name=p["name"], market_location=market_location, prognosis_data_retriever=p["prognosis_data_retriever"]
             )
             producers.append(producer)
 
@@ -275,6 +316,7 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
         location = model.Location(
             state=cmd.state,
             alias=cmd.alias,
+            tso=cmd.tso,
             residual_short=residual_short,
             residual_long=residual_long,
             producers=producers,
@@ -300,8 +342,9 @@ def _build_market_location(id_: Optional[uuid.UUID], number: str, measurand: src
     return malo
 
 
-def _build_producer(id_: Optional[uuid.UUID], market_location: model.MarketLocation, prognosis_data_retriever: src.enums.DataRetriever) -> model.Producer:
+def _build_producer(id_: Optional[uuid.UUID], name: str, market_location: model.MarketLocation, prognosis_data_retriever: src.enums.DataRetriever) -> model.Producer:
     producer = model.Producer(
+        name=name,
         market_location=market_location,
         prognosis_data_retriever=prognosis_data_retriever
     )
@@ -336,4 +379,5 @@ COMMAND_HANDLERS = {
     commands.SendPredictions: send_predictions,
     commands.UpdatePredictAll: update_and_predict_all,
     commands.SendAllEigenverbrauchsPredictionsToImpuls: send_eigenverbrauchs_predictions_to_impuls_energy_trading,
+    commands.SendAllResidualLongPredictionsToImpuls: send_residual_long_predictions_to_impuls_energy_trading,
 }
