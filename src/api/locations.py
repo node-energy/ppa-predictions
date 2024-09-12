@@ -9,22 +9,20 @@ from .common import get_bus, BasePagination
 from src.infrastructure.message_bus import MessageBus
 from src.domain import commands
 from src.domain.model import Location as DLocation
-from src.enums import DataRetriever, State
+from src.enums import DataRetriever, State, TransmissionSystemOperator
 
 router = APIRouter(prefix="/locations")
 
 
-class ResidualShort(BaseModel):
-    number: str
-
-
-class ResidualLong(BaseModel):
+class MarketLocation(BaseModel):
+    id: Optional[uuid.UUID] = None
     number: str
 
 
 class Producer(BaseModel):
     id: Optional[uuid.UUID] = None
-    market_location: ResidualLong
+    name: str
+    market_location: MarketLocation
     prognosis_data_retriever: DataRetriever
 
 
@@ -34,26 +32,29 @@ class LocationSettings(BaseModel):
 
 
 class Location(BaseModel):
+    id: Optional[uuid.UUID] = None
     state: str
     alias: Optional[str] = None
-    id: Optional[str] = None
-    residual_short: ResidualShort
-    residual_long: Optional[ResidualLong] = None
+    tso: TransmissionSystemOperator
+    residual_short: MarketLocation
+    residual_long: Optional[MarketLocation] = None
     producers: Optional[list[Producer]] = []
     settings: LocationSettings
 
     @classmethod
     def from_domain(cls, location: DLocation):
         return cls(
+            id=location.id,
             state=location.state,
             alias=location.alias,
-            id=str(location.id),
-            residual_short=ResidualShort(number=location.residual_short.number),
-            residual_long=ResidualLong(number=location.residual_long.number) if location.residual_long else None,
+            tso=location.tso.value,
+            residual_short=MarketLocation(id=location.residual_short.id, number=location.residual_short.number),
+            residual_long=MarketLocation(id=location.residual_long.id, number=location.residual_long.number) if location.residual_long else None,
             producers=[
                 Producer(
                     id=p.id,
-                    market_location=ResidualLong(number=p.market_location.number),
+                    name=p.name,
+                    market_location=MarketLocation(id=p.market_location.id, number=p.market_location.number),
                     prognosis_data_retriever=DataRetriever(p.prognosis_data_retriever)
                 ) for p in location.producers
             ],
@@ -64,6 +65,10 @@ class Location(BaseModel):
                 else None,
             ),
         )
+
+
+class SendPredictionToImpulsConfig(BaseModel):
+    send_even_if_not_sent_to_internal_fahrplanmanagement: Optional[bool] = None
 
 
 @router.get("/")
@@ -96,16 +101,24 @@ def get_location(bus: Annotated[MessageBus, Depends(get_bus)], location_id: str)
 @router.post("/")
 def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Location):
     state = State(fa_location.state)  # TODO primitives?
-    residual_short = ResidualShort(number=fa_location.residual_short.number).number
-    residual_long = ResidualLong(number=fa_location.residual_long.number).number if fa_location.residual_long else None
     location: DLocation = bus.handle(
         commands.CreateLocation(
+            id=fa_location.id,
             state=state,
             alias=fa_location.alias,
-            residual_short_malo=residual_short,
-            residual_long_malo=residual_long,
+            tso=fa_location.tso,
+            residual_short={
+                "id": fa_location.residual_short.id,
+                "number": fa_location.residual_short.number,
+            },
+            residual_long={
+                "id": fa_location.residual_long.id,
+                "number": fa_location.residual_long.number,
+            } if fa_location.residual_long else None,
             producers=[{
                 "id": producer.id,
+                "name": producer.name,
+                "market_location_id": producer.market_location.id,
                 "market_location_number": producer.market_location.number,
                 "prognosis_data_retriever": producer.prognosis_data_retriever
             } for producer in fa_location.producers],   # TODO other datatype e.g. namedtuple possible here?
@@ -141,7 +154,8 @@ def update_location_settings(
                 id=str(new_location.id),
                 state=new_location.state,
                 alias=new_location.alias,
-                residual_short=ResidualShort(number=new_location.residual_short.number),
+                tso=new_location.tso,
+                residual_short=MarketLocation(number=new_location.residual_short.number),
                 settings=LocationSettings(
                     active_from=new_location.settings.active_from,
                     active_until=new_location.settings.active_until,
@@ -210,4 +224,26 @@ def list_location_predictions(
 @router.post("/send_updated_predictions")
 def send_updated_predictions_for_all(bus: Annotated[MessageBus, Depends(get_bus)]):
     bus.handle(commands.UpdatePredictAll())
+    return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.post("/send_eigenverbrauchs_predictions_impuls")
+def send_all_eigenverbrauch_predictions_to_impuls_energy_trading(
+    bus: Annotated[MessageBus, Depends(get_bus)],
+    fa_send_prediction_to_impuls_config: SendPredictionToImpulsConfig
+):
+    bus.handle(commands.SendAllEigenverbrauchsPredictionsToImpuls(
+        fa_send_prediction_to_impuls_config.send_even_if_not_sent_to_internal_fahrplanmanagement
+    ))
+    return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.post("/send_residual_long_predictions_impuls")
+def send_all_residual_long_predictions_to_impuls_energy_trading(
+    bus: Annotated[MessageBus, Depends(get_bus)],
+    fa_send_prediction_to_impuls_config: SendPredictionToImpulsConfig
+):
+    bus.handle(commands.SendAllResidualLongPredictionsToImpuls(
+        fa_send_prediction_to_impuls_config.send_even_if_not_sent_to_internal_fahrplanmanagement
+    ))
     return Response(status_code=status.HTTP_202_ACCEPTED)

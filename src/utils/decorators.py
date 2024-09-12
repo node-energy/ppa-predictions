@@ -10,6 +10,9 @@ from traceback import format_exception
 
 from starlette.concurrency import run_in_threadpool
 
+from src.utils.timezone import TIMEZONE_BERLIN
+
+
 # logger = logging.getLogger(__name__)
 
 
@@ -24,7 +27,7 @@ def repeat_at(
         @wraps(func)
         async def wrapped() -> None:
             async def loop() -> None:
-                now = datetime.now()
+                now = datetime.now(tz=TIMEZONE_BERLIN)
                 cron = croniter.croniter(cron_str, now)
                 dt = cron.get_next(datetime)
                 logger.info(f"Next data fetch: {dt}")

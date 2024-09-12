@@ -8,6 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src import enums
+from src.config import settings
 from src.domain import model
 from src.persistence.sqlalchemy import Base
 
@@ -44,7 +45,7 @@ def historic_load_profile(component):
 
 @pytest.fixture
 def location():
-    return model.Location(state=enums.State.berlin, residual_short=model.Consumer(market_location=random_malo()))
+    return model.Location(state=enums.State.BERLIN, residual_short=model.Consumer(market_location=random_malo()))
 
 
 @pytest.fixture
