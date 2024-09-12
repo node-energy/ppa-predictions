@@ -3,11 +3,14 @@ from __future__ import annotations
 import abc
 import uuid
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, timedelta, time
 from typing import Optional
 from dataclasses import dataclass, field
 
-from src.enums import Measurand, DataRetriever, PredictionType, State
+from src.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver, TransmissionSystemOperator
+from src.utils.timezone import TIMEZONE_BERLIN, utc_now
+
+PROGNOSIS_HORIZON_DAYS = 7
 
 
 @dataclass
@@ -48,6 +51,7 @@ class Location(AggregateRoot):
     __hash__ = AggregateRoot.__hash__
     settings: LocationSettings
     state: State
+    tso: TransmissionSystemOperator
     alias: Optional[str] = None
     producers: list[Producer] = field(default_factory=list)
     residual_long: Optional[MarketLocation] = None
@@ -58,10 +62,22 @@ class Location(AggregateRoot):
     def has_production(self):
         return self.producers and len(self.producers) > 0
 
-    def get_most_recent_prediction(self, prediction_type):
-        return next(
-            (p for p in sorted(self.predictions, reverse=True) if p.type == prediction_type), None
-        )
+    def get_most_recent_prediction(self, prediction_type, receiver: Optional[PredictionReceiver]=None, sent_before: Optional[time] = None) -> Optional[Prediction]:
+        sorted_predictions = (p for p in sorted(self.predictions, reverse=True) if p.type == prediction_type)
+        if not receiver and not sent_before:
+            return next(sorted_predictions, None)
+
+        for prediction in sorted_predictions:
+            shipments = prediction.shipments
+            if receiver:
+                shipments = filter(lambda shipment: receiver == shipment.receiver, shipments)
+            if sent_before:
+                if sent_before.tzinfo is None:
+                    raise ValueError("<sent_before> must have a timezone")
+                shipments = filter(lambda shipment: shipment.created.astimezone(sent_before.tzinfo).time().replace(tzinfo=sent_before.tzinfo) < sent_before, shipments)
+            if any(shipments):
+                return prediction
+        return None
 
     def calculate_local_consumption(self):
         if not self.has_production:
@@ -105,6 +121,9 @@ class Location(AggregateRoot):
         )
         short_prediction_df[short_prediction_df < 0] = 0
         short_prediction_df = clip_to_time_range(short_prediction_df)
+        short_prediction_df = short_prediction_df[
+            short_prediction_df.first_valid_index():short_prediction_df.last_valid_index()
+        ]
         self.predictions.append(
             Prediction(df=short_prediction_df, type=PredictionType.RESIDUAL_SHORT)
         )
@@ -113,6 +132,9 @@ class Location(AggregateRoot):
             long_prediction_df = total_production_df - total_consumption_df
             long_prediction_df[long_prediction_df < 0] = 0
             long_prediction_df = clip_to_time_range(long_prediction_df)
+            long_prediction_df = long_prediction_df[
+                long_prediction_df.first_valid_index():long_prediction_df.last_valid_index()
+            ]
             self.predictions.append(
                 Prediction(df=long_prediction_df, type=PredictionType.RESIDUAL_LONG)
             )
@@ -172,7 +194,7 @@ class Consumer(Component, Entity):
 @dataclass(kw_only=True)
 class HistoricLoadData(Entity):
     __hash__ = Entity.__hash__
-    created: datetime = field(default_factory=datetime.now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
+    created: datetime = field(default_factory=utc_now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
     df: pd.DataFrame
 
     def __eq__(self, other):
@@ -185,9 +207,27 @@ class HistoricLoadData(Entity):
 @dataclass(kw_only=True)
 class Prediction(Entity):
     __hash__ = Entity.__hash__
-    created: datetime = field(default_factory=datetime.now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
+    created: datetime = field(default_factory=utc_now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
     df: pd.DataFrame
     type: PredictionType
+    shipments: list[PredictionShipment] = field(default_factory=list)
+
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def __gt__(self, other: Prediction):
+        return self.created > other.created
+
+    def covers_prediction_horizon(self, reference_date: date) -> bool:
+        prediction_horizon_start = datetime.combine(reference_date + timedelta(days=1), time(0, 0), tzinfo=TIMEZONE_BERLIN)
+        prediction_horizon_end = datetime.combine(prediction_horizon_start + timedelta(days=PROGNOSIS_HORIZON_DAYS), time(23, 45), tzinfo=TIMEZONE_BERLIN)
+        return self.df.first_valid_index()<= prediction_horizon_start and self.df.last_valid_index() >= prediction_horizon_end
+
+
+@dataclass(kw_only=True)
+class PredictionShipment(Entity):
+    created: datetime = field(default_factory=utc_now)
+    receiver: PredictionReceiver
 
     def __eq__(self, other):
         return self.id == other.id
