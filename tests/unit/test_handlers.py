@@ -1,3 +1,4 @@
+import datetime
 import datetime as dt
 import pandas as pd
 from pandas._testing import assert_frame_equal
@@ -185,7 +186,7 @@ class TestSendPredictions:
         bus.handle(commands.SendAllEigenverbrauchsPredictionsToImpuls())
 
         # ASSERT
-        for day in pd.date_range("2024, 9, 12", freq="D", periods=8):
+        for day in pd.date_range(datetime.date.today() + datetime.timedelta(days=1), freq="D", periods=6):
             day = day.to_pydatetime().date()
 
             df1 = (location_1.predictions[0].df.tz_convert(TIMEZONE_BERLIN) / 1000).round(3)
@@ -229,7 +230,7 @@ class TestSendPredictions:
         ))
 
         # ASSERT
-        for day in pd.date_range("2024, 9, 12", freq="D", periods=8):
+        for day in pd.date_range(datetime.date.today() + datetime.timedelta(days=1), freq="D", periods=6):
             day = day.to_pydatetime().date()
 
             df = (location.predictions[0].df.tz_convert(TIMEZONE_BERLIN) / 1000).round(3)
@@ -291,7 +292,7 @@ class TestSendPredictions:
         bus.handle(commands.SendAllResidualLongPredictionsToImpuls())
 
         # ASSERT
-        for day in pd.date_range("2024, 9, 12", freq="D", periods=8):
+        for day in pd.date_range(datetime.date.today() + datetime.timedelta(days=1), freq="D", periods=6):
             day = day.to_pydatetime().date()
 
             df1 = (location_1.predictions[0].df.tz_convert(TIMEZONE_BERLIN) / 1000).round(3)
