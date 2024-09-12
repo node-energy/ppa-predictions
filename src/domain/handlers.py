@@ -257,7 +257,7 @@ def _get_daily_dfs_from_predictions(
     daily_dfs = OrderedDict()
     for date in _dates_in_prognosis_horizon_impuls_energy_trading():
         daily_df = dfs_by_day.get(date)
-        if not daily_df:
+        if daily_df is None:
             logger.error(f"Found no data for date {date} to send to Impuls Energy Trading")
             continue
         daily_df = DataFrame[IetLoadDataSchema](daily_df)
