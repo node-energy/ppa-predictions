@@ -6,9 +6,10 @@ from datetime import datetime
 from holidays import country_holidays
 from typing import Optional
 from dataclasses import dataclass
-from enum import Enum
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split, GridSearchCV
+
+from src.enums import State
 
 
 @dataclass
@@ -25,41 +26,11 @@ class Entity:
     pass
 
 
-class PredictionType(Enum):
-    CONSUMPTION = 0
-    GENERATION = 1
-
-
-class State(str, Enum):
-    BADEN_WURTTEMBERG = "BW"
-    BAYERN = "BY"
-    BERLIN = "BE"
-    BRANDENBURG = "BB"
-    BREMEN = "HB"
-    HAMBURG = "HH"
-    HESSEN = "HE"
-    MECKLENBURG_VORPOMMERN = "MV"
-    NIEDERSACHSEN = "NI"
-    NORDRHEIN_WESTFALEN = "NW"
-    RHEINLAND_PFALZ = "RP"
-    SAARLAND = "SL"
-    SACHSEN = "SN"
-    SACHSEN_ANHALT = "ST"
-    SCHLESWIG_HOLSTEIN = "SH"
-    THURINGEN = "TH"
-
-
-class Unit(str, Enum):
-    kWh = "kWh"
-
-
 @dataclass
 class PredictorSettings(Entity):
     state: State
     output_period: Period
     input_period: Optional[Period] = None
-    type: PredictionType = PredictionType.CONSUMPTION
-    unit: Unit = Unit.kWh
 
 
 class AbstractPredictor(abc.ABC):

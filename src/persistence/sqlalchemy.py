@@ -1,14 +1,16 @@
 from __future__ import annotations
 from uuid import UUID
-from datetime import datetime, date, timezone
+from datetime import datetime, date
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
 from sqlalchemy import DateTime, Date, ForeignKey, PickleType, UniqueConstraint
 from typing import Optional
 
+from src.utils.timezone import TIMEZONE_UTC
+
 
 class Base(DeclarativeBase):
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(timezone.utc)
+        DateTime, default=lambda: datetime.now(TIMEZONE_UTC)
     )
 
 
@@ -24,6 +26,7 @@ class Location(Base, UUIDMixin):
         cascade="all, delete-orphan",
     )
     state: Mapped[str]
+    tso: Mapped[str]
     alias: Mapped[Optional[str]]
     residual_long: Mapped[Optional[MarketLocation]] = relationship(
         back_populates="residual_long_location",
@@ -48,6 +51,7 @@ class Component(Base, UUIDMixin):
     __tablename__ = "components"
 
     type: Mapped[str]
+    name: Mapped[str]
     market_location: Mapped[MarketLocation] = relationship(
         back_populates="component", foreign_keys="MarketLocation.component_id", cascade="all, delete",   # todo think about cascade behaviour
     )
@@ -97,6 +101,21 @@ class Prediction(Base, UUIDMixin):
     location: Mapped[Location] = relationship(
         back_populates="predictions", foreign_keys=[location_id]
     )
+    shipments: Mapped[list[PredictionShipment]] = relationship(
+        back_populates="prediction",
+        foreign_keys="PredictionShipment.prediction_id",
+        cascade="all, delete-orphan",
+    )
+
+
+class PredictionShipment(Base, UUIDMixin):
+    __tablename__ = "predictionshipments"
+
+    prediction_id: Mapped[UUID] = mapped_column(ForeignKey("predictions.id"))
+    prediction: Mapped[Prediction] = relationship(
+        back_populates="shipments", foreign_keys=[prediction_id]
+    )
+    receiver: Mapped[str]
 
 
 class HistoricLoadData(Base, UUIDMixin):

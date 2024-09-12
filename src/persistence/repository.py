@@ -7,7 +7,7 @@ import src.enums
 from src.domain import model
 from sqlalchemy.orm import Session
 
-from src.enums import Measurand, DataRetriever, ComponentType, PredictionType
+from src.enums import Measurand, DataRetriever, ComponentType, PredictionType, PredictionReceiver
 from src.persistence.sqlalchemy import Base as DBBase, LocationSettings
 from src.persistence.sqlalchemy import (
     Location as DBLocation,
@@ -16,8 +16,9 @@ from src.persistence.sqlalchemy import (
     Prediction as DBPrediction,
     LocationSettings as DBLocationSettings,
     MarketLocation as DBMarketLocation,
+    PredictionShipment as DBPredictionShipment,
 )
-
+from src.utils.timezone import TIMEZONE_UTC
 
 T = TypeVar("T")
 
@@ -169,7 +170,7 @@ class LocationRepository(
             f = io.BytesIO(db_hld.dataframe)
             return model.HistoricLoadData(
                 id=db_hld.id,
-                created=db_hld.created_at,
+                created=db_hld.created_at.replace(tzinfo=TIMEZONE_UTC),
                 df=pd.read_pickle(f)
             )
 
@@ -191,11 +192,13 @@ class LocationRepository(
             if db_component.type == ComponentType.CONSUMER.value:
                 return model.Consumer(
                     id=db_component.id,
+                    name=db_component.name,
                     market_location=market_location_to_domain(db_component.market_location),
                 )
             else:
                 return model.Producer(
                     id=db_component.id,
+                    name=db_component.name,
                     market_location=market_location_to_domain(db_component.market_location),
                     prognosis_data_retriever=DataRetriever(db_component.prognosis_data_retriever),
                 )
@@ -206,9 +209,19 @@ class LocationRepository(
             f = io.BytesIO(db_prediction.dataframe)
             return model.Prediction(
                 id=db_prediction.id,
-                created=db_prediction.created_at,
+                created=db_prediction.created_at.replace(tzinfo=TIMEZONE_UTC),
                 type=PredictionType(db_prediction.type),
-                df=pd.read_pickle(f)
+                df=pd.read_pickle(f),
+                shipments=[
+                    prediction_shipment_to_domain(s) for s in db_prediction.shipments
+                ],
+            )
+
+        def prediction_shipment_to_domain(db_prediction_shipment: DBPredictionShipment) -> model.PredictionShipment:
+            return model.PredictionShipment(
+                id=db_prediction_shipment.id,
+                created=db_prediction_shipment.created_at.replace(tzinfo=TIMEZONE_UTC),
+                receiver=PredictionReceiver(db_prediction_shipment.receiver)
             )
 
         state = src.enums.State(db_obj.state)
@@ -216,6 +229,7 @@ class LocationRepository(
             id=db_obj.id,
             settings=settings_to_domain(db_obj.settings),
             state=state,
+            tso=src.enums.TransmissionSystemOperator(db_obj.tso),
             alias=db_obj.alias,
             residual_short=market_location_to_domain(db_obj.residual_short),
             residual_long=market_location_to_domain(db_obj.residual_long),
@@ -262,6 +276,7 @@ class LocationRepository(
             type = ComponentType.PRODUCER.value if isinstance(component, model.Producer) else ComponentType.CONSUMER.value
             return DBComponent(
                 id=component.id,
+                name=component.name,
                 type=type,
                 market_location=market_location_to_db(component.market_location),
                 prognosis_data_retriever=component.prognosis_data_retriever.value if hasattr(component, "prognosis_data_retriever") else None,
@@ -274,13 +289,25 @@ class LocationRepository(
             prediction.df.to_pickle(f)
             f.seek(0)
             return DBPrediction(
-                id=prediction.id, type=prediction.type.value, dataframe=f.read()
+                id=prediction.id,
+                type=prediction.type.value,
+                dataframe=f.read(),
+                shipments=[
+                    prediction_shipment_to_db(s) for s in prediction.shipments
+                ],
+            )
+
+        def prediction_shipment_to_db(prediction_shipment: model.PredictionShipment) -> DBPredictionShipment:
+            return DBPredictionShipment(
+                id=prediction_shipment.id,
+                receiver=prediction_shipment.receiver.value
             )
 
         return DBLocation(
             id=domain_obj.id,
             settings=settings_to_db(domain_obj.id, domain_obj.settings),
             state=domain_obj.state.value,
+            tso=domain_obj.tso.value,
             alias=domain_obj.alias,
             residual_short=market_location_to_db(domain_obj.residual_short),
             residual_long=market_location_to_db(domain_obj.residual_long),

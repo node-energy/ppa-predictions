@@ -1,3 +1,4 @@
+import datetime
 import io
 from importlib import resources
 from unittest import mock
@@ -5,12 +6,17 @@ from unittest import mock
 import pandas as pd
 import pytest
 from pandas._testing import assert_frame_equal
+from pandera.typing import DataFrame
 
 from src.enums import Measurand
-from src.services.load_data import OptinodeDataRetriever, EnercastSftpDataRetriever, AbstractSftpClient, \
-    IetSftpGenerationDataRetriever
+from src.services.load_data_exchange.optinode_database import OptinodeDataRetriever
+from src.services.load_data_exchange.impuls_energy_trading import IetSftpGenerationDataRetriever, \
+    IetSftpEigenverbrauchDataSender, IetSftpResidualLongDataSender
+from src.services.load_data_exchange.enercast import EnercastSftpDataRetriever
+from src.services.load_data_exchange.common import AbstractSftpClient
+from src.utils.dataframe_schemas import IetLoadDataSchema
 from src.utils.exceptions import ConflictingEnergyData, NoMeteringOrMarketLocationFound
-from src.utils.timezone import TIMEZONE_BERLIN
+from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
 from tests.integration import test_files
 
 
@@ -24,7 +30,9 @@ def read_expected_df(file_name):
 
 
 class FakeIetSftpClient(AbstractSftpClient):
-    def get_relevant_files(self, asset_identifier: str) -> list[io.BytesIO]:
+    def download_generation_prediction(
+            self, asset_identifier: str, start: datetime.datetime | None = None, end: datetime.datetime | None = None
+    ) -> list[io.BytesIO]:
         file_objs = []
         if not asset_identifier == "fde5bb7e-b0a9-4dc5-ae9e-9ca109777cb7":
             return file_objs
@@ -40,6 +48,12 @@ class FakeIetSftpClient(AbstractSftpClient):
                     file_objs.append(file_obj)
         return file_objs
 
+    def upload_eigenverbrauch(self, file: io.BytesIO):
+        return file.read()
+
+    def upload_residual_long(self, file: io.BytesIO):
+        return file.read()
+
 
 class TestIetSftpGenerationDataRetriever:
     def test_load_data(self):
@@ -50,8 +64,48 @@ class TestIetSftpGenerationDataRetriever:
         assert_frame_equal(data, expected_df)
 
 
+class TestIETSftpConsumptionDataSender:
+    def test_send_data(self):
+        data = DataFrame[IetLoadDataSchema](
+            index=pd.DatetimeIndex(
+                data=pd.date_range(start="2021-01-01T00:00:00", periods=5, freq="15min", tz=TIMEZONE_UTC),
+                name="#timestamp",
+            ),
+            data={
+                "asset-1": [1, 2, 3, 4, 5],
+                "asset-2": [5, 4, 3, 2, 1],
+            },
+        )
+        expected_bytes = b'#timestamp;asset-1;asset-2\n01.01.2021 00:00:00;1;5\n01.01.2021 00:15:00;2;4\n01.01.2021 00:30:00;3;3\n01.01.2021 00:45:00;4;2\n01.01.2021 01:00:00;5;1\n'
+        uploaded_bytes = IetSftpEigenverbrauchDataSender(
+            sftp_client=FakeIetSftpClient()
+        ).send_data(data, prediction_date=datetime.date.today())
+        assert uploaded_bytes == expected_bytes
+
+
+class TestIETSftpResidualLongDataSender:
+    def test_send_data(self):
+        data = DataFrame[IetLoadDataSchema](
+            index=pd.DatetimeIndex(
+                data=pd.date_range(start="2021-01-01T00:00:00", periods=5, freq="15min", tz=TIMEZONE_UTC),
+                name="#timestamp",
+            ),
+            data={
+                "asset-1": [1, 2, 3, 4, 5],
+                "asset-2": [5, 4, 3, 2, 1],
+            },
+        )
+        expected_bytes = b'#timestamp;asset-1;asset-2\n01.01.2021 00:00:00;1;5\n01.01.2021 00:15:00;2;4\n01.01.2021 00:30:00;3;3\n01.01.2021 00:45:00;4;2\n01.01.2021 01:00:00;5;1\n'
+        uploaded_bytes = IetSftpResidualLongDataSender(
+            sftp_client=FakeIetSftpClient()
+        ).send_data(data, prediction_date=datetime.date.today())
+        assert uploaded_bytes == expected_bytes
+
+
 class FakeEnercastSftpClient(AbstractSftpClient):
-    def get_relevant_files(self, asset_identifier: str) -> list[io.BytesIO]:
+    def download_generation_prediction(
+            self, asset_identifier: str, start: datetime.date | None = None, end: datetime.date | None = None
+    ) -> list[io.BytesIO]:
         file_objs = []
         if not asset_identifier == "50571705655":
             return file_objs

@@ -28,19 +28,33 @@ class PredictionType(str, Enum):
 
 
 class State(str, Enum):
-    baden_wurttemberg = "BW"
-    bayern = "BY"
-    berlin = "BE"
-    brandenburg = "BB"
-    bremen = "HB"
-    hamburg = "HH"
-    hessen = "HE"
-    mecklenburg_vorpommern = "MV"
-    niedersachsen = "NI"
-    nordrhein_westfalen = "NW"
-    rheinland_pfalz = "RP"
-    saarland = "SL"
-    sachsen = "SN"
-    sachsen_anhalt = "ST"
-    schleswig_holstein = "SH"
-    thuringen = "TH"
+    BADEN_WURTTEMBERG = "BW"
+    BAYERN = "BY"
+    BERLIN = "BE"
+    BRANDENBURG = "BB"
+    BREMEN = "HB"
+    HAMBURG = "HH"
+    HESSEN = "HE"
+    MECKLENBURG_VORPOMMERN = "MV"
+    NIEDERSACHSEN = "NI"
+    NORDRHEIN_WESTFALEN = "NW"
+    RHEINLAND_PFALZ = "RP"
+    SAARLAND = "SL"
+    SACHSEN = "SN"
+    SACHSEN_ANHALT = "ST"
+    SCHLESWIG_HOLSTEIN = "SH"
+    THURINGEN = "TH"
+
+
+class PredictionReceiver(str, Enum):
+    INTERNAL_FAHRPLANMANAGEMENT = "internal_fahrplanmanagement"
+    IMPULS_ENERGY_TRADING = "impuls_energy_trading"
+
+
+class TransmissionSystemOperator(str, Enum):
+    HERTZ = "50hzt"
+    AMPRION = "amprion"
+    TENNET = "tennet"
+    TRANSNET = "transnet"
+
+
