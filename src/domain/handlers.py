@@ -192,25 +192,24 @@ def send_predictions(
 ):
     # this only sends data to internal fahrplanmanagement, because impuls requires one single file for all locations
     # so in case one location was updated, sending jobs for impuls must be triggered additionally
-    if settings.send_predictions_enabled:
-        with uow:
-            location: model.Location = uow.locations.get(UUID(cmd.location_id))
-            short_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_SHORT)
-            if short_prediction:
-                successful = dts.send_to_internal_fahrplanmanagement(short_prediction, malo=location.residual_short.number, recipient=settings.mail_recipient_cons)
-                if successful:
-                    short_prediction.shipments.append(
-                        model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
-                    )
-            long_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_LONG)
-            if long_prediction:
-                successful = dts.send_to_internal_fahrplanmanagement(long_prediction, malo=location.residual_long.number, recipient=settings.mail_recipient_prod)
-                if successful:
-                    long_prediction.shipments.append(
-                        model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
-                    )
-            uow.locations.update(location)
-            uow.commit()
+    with uow:
+        location: model.Location = uow.locations.get(UUID(cmd.location_id))
+        short_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_SHORT)
+        if short_prediction:
+            successful = dts.send_to_internal_fahrplanmanagement(short_prediction, malo=location.residual_short.number, recipient=settings.mail_recipient_cons)
+            if successful:
+                short_prediction.shipments.append(
+                    model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+                )
+        long_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_LONG)
+        if long_prediction:
+            successful = dts.send_to_internal_fahrplanmanagement(long_prediction, malo=location.residual_long.number, recipient=settings.mail_recipient_prod)
+            if successful:
+                long_prediction.shipments.append(
+                    model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+                )
+        uow.locations.update(location)
+        uow.commit()
 
 
 def send_eigenverbrauchs_predictions_to_impuls_energy_trading(

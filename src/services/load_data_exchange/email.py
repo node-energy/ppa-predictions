@@ -24,6 +24,8 @@ class ForecastEmailSender(AbstractEmailSender):
         self.smtp_pass = settings.smtp_pass
 
     def send(self, recipient: str, file_name: str, buffer) -> bool:
+        if not settings.send_predictions_enabled:
+            return False
         msg = MIMEMultipart()
         msg["From"] = self.smtp_mail
         msg["To"] = recipient
