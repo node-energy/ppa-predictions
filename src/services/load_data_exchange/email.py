@@ -1,18 +1,23 @@
+import io
 import logging
 import abc
 import smtplib
+
+from pandera.typing import DataFrame
+
 from src.config import settings
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from traceback import format_exception
 
+from src.utils.dataframe_schemas import TimeSeriesSchema
 
 logger = logging.getLogger(__name__)
 
 
 class AbstractEmailSender(abc.ABC):
     @abc.abstractmethod
-    def send(self, recipient: str, file_name: str, buffer) -> bool:
+    def send(self, recipient: str, file_name: str, data: DataFrame[TimeSeriesSchema]) -> bool:
         # return True if email was sent successfully, False otherwise
         raise NotImplementedError
 
@@ -23,15 +28,19 @@ class ForecastEmailSender(AbstractEmailSender):
         self.smtp_mail = settings.smtp_email
         self.smtp_pass = settings.smtp_pass
 
-    def send(self, recipient: str, file_name: str, buffer) -> bool:
+    def send(self, recipient: str, file_name: str, data: DataFrame[TimeSeriesSchema]) -> bool:
         msg = MIMEMultipart()
         msg["From"] = self.smtp_mail
         msg["To"] = recipient
         msg["Subject"] = file_name
 
+        buffer = self._to_csv(data)
         attachment = MIMEApplication(buffer.getvalue(), Name=file_name)
         attachment["Content-Disposition"] = f"attachment; filename={file_name}"
         msg.attach(attachment)
+
+        if not settings.send_predictions_enabled:
+            return True
 
         send_errors = None
         try:
@@ -46,3 +55,9 @@ class ForecastEmailSender(AbstractEmailSender):
         finally:
             self.smtp_connection.quit()
         return send_errors == {}
+
+    def _to_csv(self, data: DataFrame[TimeSeriesSchema]) -> io.BytesIO:
+        file_obj = io.BytesIO()
+        data.to_csv(file_obj, index=False)
+        file_obj.seek(0)
+        return file_obj
