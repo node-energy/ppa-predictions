@@ -20,7 +20,7 @@ from src.infrastructure import unit_of_work
 from src.services import predictor, data_sender
 from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP, LocationAndProducer
 from src.services.load_data_exchange.impuls_energy_trading import TIMEZONE_FILENAMES
-from src.utils.dataframe_schemas import IetLoadDataSchema, TimeSeriesSchema
+from src.utils.dataframe_schemas import IetLoadDataSchema, TimeSeriesSchema, FahrplanmanagementSchema
 from src.utils.external_schedules import GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
 from src.utils.split_df_by_day import split_df_by_day
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
@@ -198,9 +198,10 @@ def send_predictions(
         # TODO it should be possible to configure whether this should be send or not. Currently it is not needed for the
         # single location in the database
         # short_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_SHORT)
+        # short_prediction_df = FahrplanmanagementSchema.from_time_series_schema(short_prediction.df, location.residual_short.number)
         # if short_prediction:
         #     successful = dts.send_to_internal_fahrplanmanagement(
-        #         data=short_prediction.df,
+        #         data=short_prediction_df,
         #         file_name=f"{location.residual_short.number}_{location.alias if location.alias else ''}_residual_short_{today}.csv",
         #         recipient=settings.mail_recipient_cons
         #     )
@@ -209,9 +210,10 @@ def send_predictions(
         #             model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
         #         )
         long_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_LONG)
+        long_prediction_df = FahrplanmanagementSchema.from_time_series_schema(long_prediction.df, location.residual_long.number)
         if long_prediction:
             successful = dts.send_to_internal_fahrplanmanagement(
-                data=long_prediction.df,
+                data=long_prediction_df,
                 file_name=f"{location.residual_long.number}_{location.alias if location.alias else ''}_residual_long_{today}.csv",
                 recipient=settings.mail_recipient_prod
             )

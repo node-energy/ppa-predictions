@@ -10,7 +10,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from traceback import format_exception
 
-from src.utils.dataframe_schemas import TimeSeriesSchema
+from src.utils.dataframe_schemas import TimeSeriesSchema, FahrplanmanagementSchema
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class ForecastEmailSender(AbstractEmailSender):
         self.smtp_mail = settings.smtp_email
         self.smtp_pass = settings.smtp_pass
 
-    def send(self, recipient: str, file_name: str, data: DataFrame[TimeSeriesSchema]) -> bool:
+    def send(self, recipient: str, file_name: str, data: DataFrame[FahrplanmanagementSchema]) -> bool:
         msg = MIMEMultipart()
         msg["From"] = self.smtp_mail
         msg["To"] = recipient
@@ -58,6 +58,7 @@ class ForecastEmailSender(AbstractEmailSender):
 
     def _to_csv(self, data: DataFrame[TimeSeriesSchema]) -> io.BytesIO:
         file_obj = io.BytesIO()
-        data.to_csv(file_obj, index=False)
+        data.index = data.index.strftime("%Y-%m-%d %H:%M")
+        data.to_csv(file_obj, index=True, sep=";")
         file_obj.seek(0)
         return file_obj
