@@ -3,6 +3,8 @@ import pandas as pd
 from abc import ABC, abstractmethod
 from typing import Any, List, Type, TypeVar, Generic
 
+from pandera.typing import DataFrame
+
 import src.enums
 from src.domain import model
 from sqlalchemy.orm import Session
@@ -18,6 +20,7 @@ from src.persistence.sqlalchemy import (
     MarketLocation as DBMarketLocation,
     PredictionShipment as DBPredictionShipment,
 )
+from src.utils.dataframe_schemas import TimeSeriesSchema
 from src.utils.timezone import TIMEZONE_UTC
 
 T = TypeVar("T")
@@ -211,7 +214,7 @@ class LocationRepository(
                 id=db_prediction.id,
                 created=db_prediction.created_at.replace(tzinfo=TIMEZONE_UTC),
                 type=PredictionType(db_prediction.type),
-                df=pd.read_pickle(f),
+                df=DataFrame[TimeSeriesSchema](pd.read_pickle(f)),
                 shipments=[
                     prediction_shipment_to_domain(s) for s in db_prediction.shipments
                 ],
