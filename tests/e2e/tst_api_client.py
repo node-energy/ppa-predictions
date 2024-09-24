@@ -184,10 +184,6 @@ class TestLocation:
         }
         assert expected_json == response.json()
 
-    def test_calculate_predictions(self, bus, setup_database):
-        ...
-        # todo
-
     @freeze_time(ONE_HOUR_BEFORE_GATE_CLOSURE)
     def test_send_eigenverbrauch_predictions(self, bus, setup_database):
         # ARRANGE
