@@ -51,9 +51,6 @@ def update_and_predict_all(
             send_predictions(
                 commands.SendPredictions(location_id=str(location.id)), uow, dts
             )
-        send_eigenverbrauchs_predictions_to_impuls_energy_trading(
-            commands.SendAllEigenverbrauchsPredictionsToImpuls(), uow, dts
-        )
 
 
 def update_historic_data(
@@ -200,27 +197,50 @@ def send_predictions(
         # short_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_SHORT)
         # short_prediction_df = FahrplanmanagementSchema.from_time_series_schema(short_prediction.df, location.residual_short.number)
         # if short_prediction:
-        #     successful = dts.send_to_internal_fahrplanmanagement(
+        #     short_prediction_sent = dts.send_to_internal_fahrplanmanagement(
         #         data=short_prediction_df,
         #         file_name=f"{location.residual_short.number}_{location.alias if location.alias else ''}_residual_short_{today}.csv",
         #         recipient=settings.mail_recipient_cons
         #     )
-        #     if successful:
+        #     if short_prediction_sent:
         #         short_prediction.shipments.append(
         #             model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
         #         )
         long_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_LONG)
         long_prediction_df = FahrplanmanagementSchema.from_time_series_schema(long_prediction.df, location.residual_long.number)
         if long_prediction:
-            successful = dts.send_to_internal_fahrplanmanagement(
+            long_prediction_sent = dts.send_to_internal_fahrplanmanagement(
                 data=long_prediction_df,
                 file_name=f"{location.residual_long.number}_{location.alias if location.alias else ''}_residual_long_{today}.csv",
                 recipient=settings.mail_recipient_prod
             )
-            if successful:
+            if long_prediction_sent:
                 long_prediction.shipments.append(
                     model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
                 )
+
+        # if residuals where successfully sent, also mark the consumption and production predictions as sent because
+        # they are the base for computing the residuals.
+        # This is necessary, because for sending own consumption data to impuls we need to compute own consumption
+        # based on consumption and production predictions that where used to compute the residuals that where sent to
+        # internal fahrplanmanagement.
+        # This is not the perfect model, maybe it would be better to store input predictions on residuals.
+
+        consumption_prediction = location.get_most_recent_prediction(src.enums.PredictionType.CONSUMPTION)
+        production_prediction = location.get_most_recent_prediction(src.enums.PredictionType.PRODUCTION)
+        # if not location.has_production:
+        #     if short_prediction_sent:
+        #         consumption_prediction.shipments.append(
+        #             model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+        #         )
+        # else:
+        #     if short_prediction_sent or long_prediction_sent:
+        consumption_prediction.shipments.append(
+            model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+        )
+        production_prediction.shipments.append(
+            model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+        )
         uow.locations.update(location)
         uow.commit()
 
