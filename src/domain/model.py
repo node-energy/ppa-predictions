@@ -135,7 +135,7 @@ class Location(AggregateRoot):
             short_prediction_df.first_valid_index():short_prediction_df.last_valid_index()
         ]
         self.predictions.append(
-            Prediction(df=short_prediction_df, type=PredictionType.RESIDUAL_SHORT)
+            Prediction(df=DataFrame[TimeSeriesSchema](short_prediction_df), type=PredictionType.RESIDUAL_SHORT)
         )
 
         if self.has_production:
@@ -146,7 +146,7 @@ class Location(AggregateRoot):
                 long_prediction_df.first_valid_index():long_prediction_df.last_valid_index()
             ]
             self.predictions.append(
-                Prediction(df=long_prediction_df, type=PredictionType.RESIDUAL_LONG)
+                Prediction(df=DataFrame[TimeSeriesSchema](long_prediction_df), type=PredictionType.RESIDUAL_LONG)
             )
         # self.events.append(events.PredictionsCreated(location_id=str(self.id)))  # leads to send out predictions
 
@@ -243,7 +243,7 @@ class HistoricLoadData(Entity):
 class Prediction(Entity):
     __hash__ = Entity.__hash__
     created: datetime = field(default_factory=utc_now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
-    df: pd.DataFrame
+    df: DataFrame[TimeSeriesSchema]
     type: PredictionType
     shipments: list[PredictionShipment] = field(default_factory=list)
 
