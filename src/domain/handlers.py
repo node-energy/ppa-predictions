@@ -233,12 +233,9 @@ def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
     predictions: [DataFrame[TimeSeriesSchema]] = []
     with uow:
         locations: [model.Location] = uow.locations.get_all()
-        if cmd.send_even_if_not_sent_to_internal_fahrplanmanagement:
-            mandatory_previous_receivers = None
-            sent_before = None
-        else:
-            mandatory_previous_receivers = enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
-            sent_before = GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
+        mandatory_previous_receivers, sent_before = _query_params_for_impuls_predictions(
+            cmd.send_even_if_not_sent_to_internal_fahrplanmanagement
+        )
 
         for location in locations:
             if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
@@ -313,12 +310,9 @@ def _get_predictions_for_impuls_energy_trading(
     for location in locations:
         if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
             continue
-        if send_even_if_not_sent_to_internal_fahrplanmanagement:
-            mandatory_previous_receivers = None
-            sent_before = None
-        else:
-            mandatory_previous_receivers = enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
-            sent_before = GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
+        mandatory_previous_receivers, sent_before = _query_params_for_impuls_predictions(
+            send_even_if_not_sent_to_internal_fahrplanmanagement
+        )
 
         prediction = location.get_most_recent_prediction(
             prediction_type=prediction_type,
@@ -339,6 +333,16 @@ def _get_predictions_for_impuls_energy_trading(
         df.columns = [str(location.residual_long.id)]
         predictions.append(df)
     return predictions
+
+
+def _query_params_for_impuls_predictions(send_even_if_not_sent_to_internal_fahrplanmanagement: bool):
+    if send_even_if_not_sent_to_internal_fahrplanmanagement:
+        mandatory_previous_receivers = None
+        sent_before = None
+    else:
+        mandatory_previous_receivers = enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+        sent_before = GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
+    return mandatory_previous_receivers, sent_before
 
 
 def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfWork):
