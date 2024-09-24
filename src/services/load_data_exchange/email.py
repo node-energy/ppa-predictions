@@ -17,18 +17,21 @@ logger = logging.getLogger(__name__)
 
 class AbstractEmailSender(abc.ABC):
     @abc.abstractmethod
-    def send(self, recipient: str, file_name: str, data: DataFrame[TimeSeriesSchema]) -> bool:
+    def send(
+        self, recipient: str, file_name: str, data: DataFrame[TimeSeriesSchema]
+    ) -> bool:
         # return True if email was sent successfully, False otherwise
         raise NotImplementedError
 
 
 class ForecastEmailSender(AbstractEmailSender):
     def __init__(self):
-        self.smtp_connection = smtplib.SMTP(settings.smtp_host, settings.smtp_port)
         self.smtp_mail = settings.smtp_email
         self.smtp_pass = settings.smtp_pass
 
-    def send(self, recipient: str, file_name: str, data: DataFrame[FahrplanmanagementSchema]) -> bool:
+    def send(
+        self, recipient: str, file_name: str, data: DataFrame[FahrplanmanagementSchema]
+    ) -> bool:
         msg = MIMEMultipart()
         msg["From"] = self.smtp_mail
         msg["To"] = recipient
@@ -43,17 +46,20 @@ class ForecastEmailSender(AbstractEmailSender):
             return True
 
         send_errors = None
+        smtp_connection = smtplib.SMTP(settings.smtp_host, settings.smtp_port)
         try:
-            self.smtp_connection.starttls()
-            self.smtp_connection.login(self.smtp_mail, self.smtp_pass)
-            send_errors = self.smtp_connection.sendmail(self.smtp_mail, recipient, msg.as_string())
+            smtp_connection.starttls()
+            smtp_connection.login(self.smtp_mail, self.smtp_pass)
+            send_errors = smtp_connection.sendmail(
+                self.smtp_mail, recipient, msg.as_string()
+            )
         except Exception as exc:
             formatted_exception = "".join(
                 format_exception(type(exc), exc, exc.__traceback__)
             )
             logger.error(formatted_exception)
         finally:
-            self.smtp_connection.quit()
+            smtp_connection.quit()
         return send_errors == {}
 
     def _to_csv(self, data: DataFrame[TimeSeriesSchema]) -> io.BytesIO:
