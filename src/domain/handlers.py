@@ -143,7 +143,7 @@ def calculate_predictions(
 
             location.add_prediction(
                 model.Prediction(
-                    df=local_consumption_prediction_df,
+                    df=DataFrame[TimeSeriesSchema](local_consumption_prediction_df),
                     type=src.enums.PredictionType.CONSUMPTION,
                 )
             )
@@ -156,13 +156,13 @@ def calculate_predictions(
                     asset_identifier = data_retriever_config.asset_identifier_func(LocationAndProducer(location, producer))
                     location.add_prediction(
                         model.Prediction(
-                            df=data_retriever.get_data(
+                            df=DataFrame[TimeSeriesSchema](data_retriever.get_data(
                                 asset_identifier=asset_identifier,
                                 measurand=Measurand.NEGATIVE,
                                 start=datetime.datetime.combine(
                                     start_date, datetime.time.min, tzinfo=TIMEZONE_BERLIN
                                 ),
-                            ),
+                            )),
                             type=src.enums.PredictionType.PRODUCTION
                         )
                     )
