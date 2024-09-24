@@ -195,6 +195,10 @@ class TestLocation:
                 PredictionFactory.build(
                     type=enums.PredictionType.CONSUMPTION,
                     shipments=[PredictionShipmentFactory.build(receiver=PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)]
+                ),
+                PredictionFactory.build(
+                    type=enums.PredictionType.PRODUCTION,
+                    shipments=[PredictionShipmentFactory.build(receiver=PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)]
                 )
             ]
         )
@@ -209,7 +213,7 @@ class TestLocation:
 
         # ASSERT
         assert response.status_code == 202
-        assert len(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data) == 8
+        assert len(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data) == 6
 
     def test_enforce_sending_eigenverbrauch_predictions(self, bus, setup_database):
         # ARRANGE
@@ -220,6 +224,9 @@ class TestLocation:
             predictions=[
                 PredictionFactory.build(
                     type=enums.PredictionType.CONSUMPTION,
+                ),
+                PredictionFactory.build(
+                    type=enums.PredictionType.PRODUCTION,
                 )
             ]
         )
@@ -234,7 +241,7 @@ class TestLocation:
 
         # ASSERT
         assert response.status_code == 202
-        assert len(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data) == 8
+        assert len(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data) == 6
 
     @freeze_time(ONE_HOUR_BEFORE_GATE_CLOSURE)
     def test_send_residual_long_predictions(self, bus, setup_database):
@@ -266,5 +273,5 @@ class TestLocation:
 
         # ASSERT
         assert response.status_code == 202
-        assert len(bus.dts.impuls_energy_trading_residual_long_sender.data) == 8
+        assert len(bus.dts.impuls_energy_trading_residual_long_sender.data) == 6
 
