@@ -1,15 +1,16 @@
 import logging
 import sys
+
+from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.config import settings
+from src.config import settings, scheduler
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 from src.services.load_data_exchange.optinode_database import OptinodeDataRetriever
 from src.services.data_sender import DataSender
 from src.api import locations as locations_api
 from src.api.middleware import ApiKeyAuthMiddleware
-from src.utils.decorators import repeat_at
 from src.domain import commands
 
 
@@ -59,15 +60,13 @@ async def root():
     return {"message": "root"}
 
 
-@app.on_event("startup")  # TODO replace with APScheduler
-@repeat_at(settings.update_cron, logger=logger)
-def fetch_energy_data():
+@scheduler.scheduled_job(CronTrigger.from_crontab(settings.update_cron))
+def calculate_and_send_predictions_to_fahrplanmanagement():
     bus = MessageBus()
     bus.handle(commands.UpdatePredictAll())
 
 
-@app.on_event("startup")  # TODO replace with APScheduler
-@repeat_at(settings.impuls_energy_trading_cron, logger=logger)
+@scheduler.scheduled_job(CronTrigger.from_crontab(settings.impuls_energy_trading_cron))
 def send_data_to_impuls_energy_trading():
     bus = MessageBus()
     # this requires that the historical data was already retrieved
