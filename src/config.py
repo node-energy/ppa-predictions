@@ -36,6 +36,7 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+
 sentry_sdk.init(
     dsn="https://446b15db143f9477706fbf13a4f6dbd9@o105024.ingest.us.sentry.io/4507814207815680",
     # Set traces_sample_rate to 1.0 to capture 100%
