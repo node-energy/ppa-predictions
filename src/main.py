@@ -12,7 +12,7 @@ from src.services.data_sender import DataSender
 from src.api import locations as locations_api
 from src.api.middleware import ApiKeyAuthMiddleware
 from src.domain import commands
-
+from src.utils.timezone import TIMEZONE_BERLIN
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -60,13 +60,13 @@ async def root():
     return {"message": "root"}
 
 
-@scheduler.scheduled_job(CronTrigger.from_crontab(settings.update_cron))
+@scheduler.scheduled_job(CronTrigger.from_crontab(settings.update_cron, timezone=TIMEZONE_BERLIN))
 def calculate_and_send_predictions_to_fahrplanmanagement():
     bus = MessageBus()
     bus.handle(commands.UpdatePredictAll())
 
 
-@scheduler.scheduled_job(CronTrigger.from_crontab(settings.impuls_energy_trading_cron))
+@scheduler.scheduled_job(CronTrigger.from_crontab(settings.impuls_energy_trading_cron, timezone=TIMEZONE_BERLIN))
 def send_data_to_impuls_energy_trading():
     bus = MessageBus()
     # this requires that the historical data was already retrieved
