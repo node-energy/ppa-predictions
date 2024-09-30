@@ -5,8 +5,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from sentry_sdk.integrations.logging import LoggingIntegration
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from src.utils.timezone import TIMEZONE_BERLIN
-
 
 class Settings(BaseSettings):
     debug: bool = True
@@ -55,5 +53,5 @@ sentry_sdk.init(
 )
 
 
-scheduler = BackgroundScheduler(timezone=TIMEZONE_BERLIN)
+scheduler = BackgroundScheduler()
 scheduler.start()
