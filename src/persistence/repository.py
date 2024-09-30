@@ -250,6 +250,11 @@ class LocationRepository(
             self._session.query(LocationSettings).filter_by(
                 location_id=domain_id
             ).delete()  # todo too dirty?
+            # db operations will be sorted before they are applied
+            # it may happen that the CREATE statement is executed before the DELETE statement
+            # this would fail due to the unique constraint on location_id
+            # flushing the session here will ensure that the DELETE statement is executed before the CREATE statement
+            self._session.flush()
             return DBLocationSettings(
                 active_from=settings.active_from,
                 active_until=settings.active_until,
