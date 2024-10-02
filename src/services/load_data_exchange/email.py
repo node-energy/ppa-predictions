@@ -30,7 +30,7 @@ class ForecastEmailSender(AbstractEmailSender):
         self.smtp_pass = settings.smtp_pass
 
     def send(
-            self, recipient: str, file_name: str, data: DataFrame[FahrplanmanagementSchema]
+        self, recipient: str, file_name: str, data: DataFrame[FahrplanmanagementSchema]
     ) -> bool:
         msg = MIMEMultipart()
         msg["From"] = self.smtp_mail
