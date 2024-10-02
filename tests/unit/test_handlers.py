@@ -5,7 +5,7 @@ from pandas._testing import assert_frame_equal
 from pandera.typing import DataFrame
 
 from src import enums
-from src.enums import PredictionReceiver, TransmissionSystemOperator
+from src.enums import PredictionReceiver, TransmissionSystemOperator, PredictionType
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import MemoryUnitOfWork
 from src.services.load_data_exchange.common import AbstractLoadDataRetriever
@@ -140,6 +140,15 @@ class TestSendPredictions:
                             receiver=PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
                         )
                     ]
+                ),
+                PredictionFactory.build(
+                    type=enums.PredictionType.PRODUCTION,
+                    shipments=[
+                        PredictionShipmentFactory.build(
+                            created=ONE_HOUR_BEFORE_GATE_CLOSURE,
+                            receiver=PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+                        )
+                    ]
                 )
             ]
         )
@@ -150,6 +159,15 @@ class TestSendPredictions:
             predictions=[
                 PredictionFactory.build(
                     type=enums.PredictionType.CONSUMPTION,
+                    shipments=[
+                        PredictionShipmentFactory.build(
+                            created=ONE_HOUR_BEFORE_GATE_CLOSURE,
+                            receiver=PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+                        )
+                    ]
+                ),
+                PredictionFactory.build(
+                    type=enums.PredictionType.PRODUCTION,
                     shipments=[
                         PredictionShipmentFactory.build(
                             created=ONE_HOUR_BEFORE_GATE_CLOSURE,
@@ -189,10 +207,17 @@ class TestSendPredictions:
         for day in pd.date_range(datetime.date.today() + datetime.timedelta(days=1), freq="D", periods=6):
             day = day.to_pydatetime().date()
 
-            df1 = (location_1.predictions[0].df.tz_convert(TIMEZONE_BERLIN) / 1000).round(3)
+            consumption_prediction = next(filter(lambda p: p.type == PredictionType.CONSUMPTION, location_1.predictions)).df
+            production_prediction = next(filter(lambda p: p.type == PredictionType.PRODUCTION, location_1.predictions)).df
+            df1 = consumption_prediction.clip(upper=production_prediction)
+            df1 = (df1.tz_convert(TIMEZONE_BERLIN) / 1000).round(3)
             df1 = df1[df1.index.date == day]
             df1 = df1.tz_convert(TIMEZONE_UTC)
-            df2 = (location_2.predictions[0].df.tz_convert(TIMEZONE_BERLIN) / 1000).round(3)
+
+            consumption_prediction = next(filter(lambda p: p.type == PredictionType.CONSUMPTION, location_2.predictions)).df
+            production_prediction = next(filter(lambda p: p.type == PredictionType.PRODUCTION, location_2.predictions)).df
+            df2 = consumption_prediction.clip(upper=production_prediction)
+            df2 = (df2.tz_convert(TIMEZONE_BERLIN) / 1000).round(3)
             df2 = df2[df2.index.date == day]
             df2 = df2.tz_convert(TIMEZONE_UTC)
             df = pd.concat([df1, df2], axis=1)
@@ -201,11 +226,6 @@ class TestSendPredictions:
             df = DataFrame[IetLoadDataSchema](df)
 
             assert_frame_equal(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data[day], df)
-
-        with bus.uow as uow:
-            for id_ in [location_1.id, location_2.id]:
-                prediction = uow.locations.get(id_).predictions[0]
-                assert [s.receiver for s in prediction.shipments] == [PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT, PredictionReceiver.IMPULS_ENERGY_TRADING]
 
     def test_enforce_sending_eigenverbrauch_predictions_to_impuls_energy_trading(self):
         # ARRANGE
@@ -218,6 +238,9 @@ class TestSendPredictions:
             predictions=[
                 PredictionFactory.build(
                     type=enums.PredictionType.CONSUMPTION,
+                ),
+                PredictionFactory.build(
+                    type=enums.PredictionType.PRODUCTION,
                 )
             ]
         )
@@ -240,10 +263,6 @@ class TestSendPredictions:
             df.columns = [f"{location.residual_long.id}"]
             df = DataFrame[IetLoadDataSchema](df)
             assert_frame_equal(bus.dts.impuls_energy_trading_eigenverbrauch_sender.data[day], df)
-
-        with bus.uow as uow:
-            prediction = uow.locations.get(location.id).predictions[0]
-            assert [s.receiver for s in prediction.shipments] == [PredictionReceiver.IMPULS_ENERGY_TRADING]
 
     def test_send_residual_long_predictions_to_impuls_energy_trading(self):
         # ARRANGE

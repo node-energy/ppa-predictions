@@ -2,6 +2,8 @@ import datetime
 import datetime as dt
 import pandas as pd
 from pandas.testing import assert_frame_equal
+from pandera.typing import DataFrame
+
 from src.domain.model import (
     HistoricLoadData,
     Location,
@@ -9,16 +11,18 @@ from src.domain.model import (
     Producer, MarketLocation,
 )
 from src.enums import PredictionType, DataRetriever, Measurand
+from src.utils.dataframe_schemas import TimeSeriesSchema
+from src.utils.timezone import TIMEZONE_BERLIN
 
 
 def create_df_with_constant_values(value=42):
-    start = dt.datetime(2023, 12, 1, 0, 0)
+    start = dt.datetime(2023, 12, 1, 0, 0, tzinfo=TIMEZONE_BERLIN)
     end = start + dt.timedelta(days=365)
     df = pd.DataFrame(
         {"datetime": pd.date_range(start=start, end=end, freq="15min"), "value": value}
     )
     df.set_index("datetime", inplace=True)
-    return df
+    return DataFrame[TimeSeriesSchema](df)
 
 
 class TestLocation:

@@ -3,11 +3,19 @@ import pandas as pd
 from abc import ABC, abstractmethod
 from typing import Any, List, Type, TypeVar, Generic
 
+from pandera.typing import DataFrame
+
 import src.enums
 from src.domain import model
 from sqlalchemy.orm import Session
 
-from src.enums import Measurand, DataRetriever, ComponentType, PredictionType, PredictionReceiver
+from src.enums import (
+    Measurand,
+    DataRetriever,
+    ComponentType,
+    PredictionType,
+    PredictionReceiver,
+)
 from src.persistence.sqlalchemy import Base as DBBase, LocationSettings
 from src.persistence.sqlalchemy import (
     Location as DBLocation,
@@ -18,6 +26,7 @@ from src.persistence.sqlalchemy import (
     MarketLocation as DBMarketLocation,
     PredictionShipment as DBPredictionShipment,
 )
+from src.utils.dataframe_schemas import TimeSeriesSchema
 from src.utils.timezone import TIMEZONE_UTC
 
 T = TypeVar("T")
@@ -171,10 +180,12 @@ class LocationRepository(
             return model.HistoricLoadData(
                 id=db_hld.id,
                 created=db_hld.created_at.replace(tzinfo=TIMEZONE_UTC),
-                df=pd.read_pickle(f)
+                df=pd.read_pickle(f),
             )
 
-        def market_location_to_domain(db_market_location: DBMarketLocation) -> model.MarketLocation | None:
+        def market_location_to_domain(
+            db_market_location: DBMarketLocation,
+        ) -> model.MarketLocation | None:
             if db_market_location is None:
                 return None
             return model.MarketLocation(
@@ -193,17 +204,25 @@ class LocationRepository(
                 return model.Consumer(
                     id=db_component.id,
                     name=db_component.name,
-                    market_location=market_location_to_domain(db_component.market_location),
+                    market_location=market_location_to_domain(
+                        db_component.market_location
+                    ),
                 )
             else:
                 return model.Producer(
                     id=db_component.id,
                     name=db_component.name,
-                    market_location=market_location_to_domain(db_component.market_location),
-                    prognosis_data_retriever=DataRetriever(db_component.prognosis_data_retriever),
+                    market_location=market_location_to_domain(
+                        db_component.market_location
+                    ),
+                    prognosis_data_retriever=DataRetriever(
+                        db_component.prognosis_data_retriever
+                    ),
                 )
 
-        def prediction_to_domain(db_prediction: DBPrediction) -> model.Prediction | None:
+        def prediction_to_domain(
+            db_prediction: DBPrediction,
+        ) -> model.Prediction | None:
             if db_prediction is None:
                 return None
             f = io.BytesIO(db_prediction.dataframe)
@@ -211,17 +230,19 @@ class LocationRepository(
                 id=db_prediction.id,
                 created=db_prediction.created_at.replace(tzinfo=TIMEZONE_UTC),
                 type=PredictionType(db_prediction.type),
-                df=pd.read_pickle(f),
+                df=DataFrame[TimeSeriesSchema](pd.read_pickle(f)),
                 shipments=[
                     prediction_shipment_to_domain(s) for s in db_prediction.shipments
                 ],
             )
 
-        def prediction_shipment_to_domain(db_prediction_shipment: DBPredictionShipment) -> model.PredictionShipment:
+        def prediction_shipment_to_domain(
+            db_prediction_shipment: DBPredictionShipment,
+        ) -> model.PredictionShipment:
             return model.PredictionShipment(
                 id=db_prediction_shipment.id,
                 created=db_prediction_shipment.created_at.replace(tzinfo=TIMEZONE_UTC),
-                receiver=PredictionReceiver(db_prediction_shipment.receiver)
+                receiver=PredictionReceiver(db_prediction_shipment.receiver),
             )
 
         state = src.enums.State(db_obj.state)
@@ -243,16 +264,26 @@ class LocationRepository(
         ) -> DBLocationSettings | None:
             if settings is None:
                 return None
-            # recreate value object
-            self._session.query(LocationSettings).filter_by(
-                location_id=domain_id
-            ).delete()  # todo too dirty?
+
+            settings_from_db = (
+                self._session.query(LocationSettings)
+                .filter_by(location_id=domain_id)
+                .first()
+            )
+
+            if settings_from_db is not None:
+                settings_from_db.active_from = settings.active_from
+                settings_from_db.active_until = settings.active_until
+                return settings_from_db
+
             return DBLocationSettings(
                 active_from=settings.active_from,
                 active_until=settings.active_until,
             )
 
-        def historic_load_data_to_db(hld: model.HistoricLoadData) -> DBHistoricLoadData | None:
+        def historic_load_data_to_db(
+            hld: model.HistoricLoadData,
+        ) -> DBHistoricLoadData | None:
             if hld is None:
                 return None
             f = io.BytesIO()
@@ -260,7 +291,9 @@ class LocationRepository(
             f.seek(0)
             return DBHistoricLoadData(id=hld.id, dataframe=f.read())
 
-        def market_location_to_db(malo: model.MarketLocation) -> DBMarketLocation | None:
+        def market_location_to_db(
+            malo: model.MarketLocation,
+        ) -> DBMarketLocation | None:
             if malo is None:
                 return None
             return DBMarketLocation(
@@ -273,13 +306,19 @@ class LocationRepository(
         def component_to_db(component: model.Component) -> DBComponent | None:
             if component is None:
                 return None
-            type = ComponentType.PRODUCER.value if isinstance(component, model.Producer) else ComponentType.CONSUMER.value
+            type = (
+                ComponentType.PRODUCER.value
+                if isinstance(component, model.Producer)
+                else ComponentType.CONSUMER.value
+            )
             return DBComponent(
                 id=component.id,
                 name=component.name,
                 type=type,
                 market_location=market_location_to_db(component.market_location),
-                prognosis_data_retriever=component.prognosis_data_retriever.value if hasattr(component, "prognosis_data_retriever") else None,
+                prognosis_data_retriever=component.prognosis_data_retriever.value
+                if hasattr(component, "prognosis_data_retriever")
+                else None,
             )
 
         def prediction_to_db(prediction: model.Prediction) -> DBPrediction | None:
@@ -292,15 +331,14 @@ class LocationRepository(
                 id=prediction.id,
                 type=prediction.type.value,
                 dataframe=f.read(),
-                shipments=[
-                    prediction_shipment_to_db(s) for s in prediction.shipments
-                ],
+                shipments=[prediction_shipment_to_db(s) for s in prediction.shipments],
             )
 
-        def prediction_shipment_to_db(prediction_shipment: model.PredictionShipment) -> DBPredictionShipment:
+        def prediction_shipment_to_db(
+            prediction_shipment: model.PredictionShipment,
+        ) -> DBPredictionShipment:
             return DBPredictionShipment(
-                id=prediction_shipment.id,
-                receiver=prediction_shipment.receiver.value
+                id=prediction_shipment.id, receiver=prediction_shipment.receiver.value
             )
 
         return DBLocation(

@@ -33,7 +33,7 @@ class OptinodeDataRetriever(AbstractLoadDataRetriever):  # TODO get rid of this
         end: datetime.datetime | None = None
     ) -> DataFrame[TimeSeriesSchema]:
         if not start:
-            start = dt.datetime.combine(dt.date.today(), dt.time.min, tzinfo=TIMEZONE_BERLIN) - dt.timedelta(days=14)
+            start = dt.datetime.combine(dt.date.today(), dt.time.min, tzinfo=TIMEZONE_BERLIN) - dt.timedelta(days=90)
         malo = self._get_market_location(asset_identifier, start, measurand)
 
         energy_data: pd.Series = malo.get_load_profile(

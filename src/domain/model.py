@@ -1,14 +1,21 @@
 from __future__ import annotations
 
 import abc
+import logging
 import uuid
 import pandas as pd
 from datetime import datetime, date, time
 from typing import Optional
 from dataclasses import dataclass, field
 
+from pandera.typing import DataFrame
+
 from src.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver, TransmissionSystemOperator
+from src.utils.dataframe_schemas import TimeSeriesSchema
 from src.utils.timezone import utc_now
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -60,7 +67,12 @@ class Location(AggregateRoot):
     def has_production(self):
         return self.producers and len(self.producers) > 0
 
-    def get_most_recent_prediction(self, prediction_type, receiver: Optional[PredictionReceiver]=None, sent_before: Optional[time] = None) -> Optional[Prediction]:
+    def get_most_recent_prediction(
+        self,
+        prediction_type,
+        receiver: Optional[PredictionReceiver]=None,
+        sent_before: Optional[time] = None
+    ) -> Optional[Prediction]:
         sorted_predictions = (p for p in sorted(self.predictions, reverse=True) if p.type == prediction_type)
         if not receiver and not sent_before:
             return next(sorted_predictions, None)
@@ -123,7 +135,7 @@ class Location(AggregateRoot):
             short_prediction_df.first_valid_index():short_prediction_df.last_valid_index()
         ]
         self.predictions.append(
-            Prediction(df=short_prediction_df, type=PredictionType.RESIDUAL_SHORT)
+            Prediction(df=DataFrame[TimeSeriesSchema](short_prediction_df), type=PredictionType.RESIDUAL_SHORT)
         )
 
         if self.has_production:
@@ -134,7 +146,7 @@ class Location(AggregateRoot):
                 long_prediction_df.first_valid_index():long_prediction_df.last_valid_index()
             ]
             self.predictions.append(
-                Prediction(df=long_prediction_df, type=PredictionType.RESIDUAL_LONG)
+                Prediction(df=DataFrame[TimeSeriesSchema](long_prediction_df), type=PredictionType.RESIDUAL_LONG)
             )
         # self.events.append(events.PredictionsCreated(location_id=str(self.id)))  # leads to send out predictions
 
@@ -162,6 +174,31 @@ class Location(AggregateRoot):
         self.predictions = [
             p for p in self.predictions if p not in predictions_to_remove
         ]
+
+    def get_predicted_own_consumption(
+        self,
+        mandatory_previous_receivers: Optional[PredictionReceiver] = None,
+        sent_before: Optional[time] = None
+    ):
+        if not self.has_production:
+            logger.warning("Location has no production, cannot calculate own consumption")
+            return None
+        consumption_prediction = self.get_most_recent_prediction(
+            prediction_type=PredictionType.CONSUMPTION,
+            receiver=mandatory_previous_receivers,
+            sent_before=sent_before,
+        )
+        production_prediction = self.get_most_recent_prediction(
+            prediction_type=PredictionType.PRODUCTION,
+            receiver=mandatory_previous_receivers,
+            sent_before=sent_before,
+        )
+        if consumption_prediction and production_prediction:
+            df = consumption_prediction.df.clip(upper=production_prediction.df)
+            return DataFrame[TimeSeriesSchema](df[df.first_valid_index(): df.last_valid_index()])
+        return None
+
+
 
 
 @dataclass(kw_only=True)
@@ -206,7 +243,7 @@ class HistoricLoadData(Entity):
 class Prediction(Entity):
     __hash__ = Entity.__hash__
     created: datetime = field(default_factory=utc_now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
-    df: pd.DataFrame
+    df: DataFrame[TimeSeriesSchema]
     type: PredictionType
     shipments: list[PredictionShipment] = field(default_factory=list)
 
