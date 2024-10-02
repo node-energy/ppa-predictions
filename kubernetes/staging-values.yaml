@@ -1,7 +1,8 @@
 configuration:
   debug: "True"
-  mail_recipient_cons: "kai.timofejew@node.energy"
-  mail_recipient_prod: "kai.timofejew@node.energy"
+  sentry_enabled: "True"
+  mail_recipient_cons: "verbrauchsprognosen@ppa-mailbox.node.energy"
+  mail_recipient_prod: "erzeugungsprognosen@ppa-mailbox.node.energy"
   send_predictions_enabled: "False"
   smtp_host: "smtp.office365.com"
   smtp_port: "587"

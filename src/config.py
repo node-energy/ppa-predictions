@@ -1,6 +1,7 @@
 import logging
 
 import sentry_sdk
+from apscheduler.schedulers.background import BackgroundScheduler
 from sentry_sdk.integrations.logging import LoggingIntegration
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -34,6 +35,7 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+
 if settings.sentry_enabled:
     sentry_sdk.init(
         dsn="https://446b15db143f9477706fbf13a4f6dbd9@o105024.ingest.us.sentry.io/4507814207815680",
@@ -51,3 +53,7 @@ if settings.sentry_enabled:
             ),
         ]
     )
+
+
+scheduler = BackgroundScheduler()
+scheduler.start()

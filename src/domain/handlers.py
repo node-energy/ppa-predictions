@@ -20,7 +20,7 @@ from src.infrastructure import unit_of_work
 from src.services import predictor, data_sender
 from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP, LocationAndProducer
 from src.services.load_data_exchange.impuls_energy_trading import TIMEZONE_FILENAMES
-from src.utils.dataframe_schemas import IetLoadDataSchema, TimeSeriesSchema
+from src.utils.dataframe_schemas import IetLoadDataSchema, TimeSeriesSchema, FahrplanmanagementSchema
 from src.utils.external_schedules import GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
 from src.utils.split_df_by_day import split_df_by_day
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
@@ -51,9 +51,6 @@ def update_and_predict_all(
             send_predictions(
                 commands.SendPredictions(location_id=str(location.id)), uow, dts
             )
-        send_eigenverbrauchs_predictions_to_impuls_energy_trading(
-            commands.SendAllEigenverbrauchsPredictionsToImpuls(), uow, dts
-        )
 
 
 def update_historic_data(
@@ -143,7 +140,7 @@ def calculate_predictions(
 
             location.add_prediction(
                 model.Prediction(
-                    df=local_consumption_prediction_df,
+                    df=DataFrame[TimeSeriesSchema](local_consumption_prediction_df),
                     type=src.enums.PredictionType.CONSUMPTION,
                 )
             )
@@ -156,13 +153,13 @@ def calculate_predictions(
                     asset_identifier = data_retriever_config.asset_identifier_func(LocationAndProducer(location, producer))
                     location.add_prediction(
                         model.Prediction(
-                            df=data_retriever.get_data(
+                            df=DataFrame[TimeSeriesSchema](data_retriever.get_data(
                                 asset_identifier=asset_identifier,
                                 measurand=Measurand.NEGATIVE,
                                 start=datetime.datetime.combine(
                                     start_date, datetime.time.min, tzinfo=TIMEZONE_BERLIN
                                 ),
-                            ),
+                            )),
                             type=src.enums.PredictionType.PRODUCTION
                         )
                     )
@@ -192,22 +189,58 @@ def send_predictions(
 ):
     # this only sends data to internal fahrplanmanagement, because impuls requires one single file for all locations
     # so in case one location was updated, sending jobs for impuls must be triggered additionally
+    today = datetime.date.today().strftime("%Y-%m-%d")
     with uow:
         location: model.Location = uow.locations.get(UUID(cmd.location_id))
-        short_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_SHORT)
-        if short_prediction:
-            successful = dts.send_to_internal_fahrplanmanagement(short_prediction, malo=location.residual_short.number, recipient=settings.mail_recipient_cons)
-            if successful:
-                short_prediction.shipments.append(
-                    model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
-                )
+        # TODO it should be possible to configure whether this should be send or not. Currently it is not needed for the
+        # single location in the database
+        # short_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_SHORT)
+        # short_prediction_df = FahrplanmanagementSchema.from_time_series_schema(short_prediction.df, location.residual_short.number)
+        # if short_prediction:
+        #     short_prediction_sent = dts.send_to_internal_fahrplanmanagement(
+        #         data=short_prediction_df,
+        #         file_name=f"{location.residual_short.number}_{location.alias if location.alias else ''}_residual_short_{today}.csv",
+        #         recipient=settings.mail_recipient_cons
+        #     )
+        #     if short_prediction_sent:
+        #         short_prediction.shipments.append(
+        #             model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+        #         )
         long_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_LONG)
+        long_prediction_df = FahrplanmanagementSchema.from_time_series_schema(long_prediction.df, location.residual_long.number)
         if long_prediction:
-            successful = dts.send_to_internal_fahrplanmanagement(long_prediction, malo=location.residual_long.number, recipient=settings.mail_recipient_prod)
-            if successful:
+            long_prediction_sent = dts.send_to_internal_fahrplanmanagement(
+                data=long_prediction_df,
+                file_name=f"{location.residual_long.number}_{location.alias if location.alias else ''}_residual_long_{today}.csv",
+                recipient=settings.mail_recipient_prod
+            )
+            if long_prediction_sent:
                 long_prediction.shipments.append(
                     model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
                 )
+
+        # if residuals where successfully sent, also mark the consumption and production predictions as sent because
+        # they are the base for computing the residuals.
+        # This is necessary, because for sending own consumption data to impuls we need to compute own consumption
+        # based on consumption and production predictions that where used to compute the residuals that where sent to
+        # internal fahrplanmanagement.
+        # This is not the perfect model, maybe it would be better to store input predictions on residuals.
+
+        consumption_prediction = location.get_most_recent_prediction(src.enums.PredictionType.CONSUMPTION)
+        production_prediction = location.get_most_recent_prediction(src.enums.PredictionType.PRODUCTION)
+        # if not location.has_production:
+        #     if short_prediction_sent:
+        #         consumption_prediction.shipments.append(
+        #             model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+        #         )
+        # else:
+        #     if short_prediction_sent or long_prediction_sent:
+        consumption_prediction.shipments.append(
+            model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+        )
+        production_prediction.shipments.append(
+            model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+        )
         uow.locations.update(location)
         uow.commit()
 
@@ -217,10 +250,25 @@ def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
     uow: unit_of_work.AbstractUnitOfWork,
     dts: data_sender.AbstractDataSender
 ):
+    predictions: [DataFrame[TimeSeriesSchema]] = []
     with uow:
-        predictions = _get_predictions_for_impuls_energy_trading(
-            uow, PredictionType.CONSUMPTION, cmd.send_even_if_not_sent_to_internal_fahrplanmanagement
+        locations: [model.Location] = uow.locations.get_all()
+        mandatory_previous_receivers, sent_before = _query_params_for_impuls_predictions(
+            cmd.send_even_if_not_sent_to_internal_fahrplanmanagement
         )
+
+        for location in locations:
+            if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
+                continue
+            prediction = location.get_predicted_own_consumption(
+                mandatory_previous_receivers=mandatory_previous_receivers,
+                sent_before=sent_before,
+            )
+            if prediction is None:
+                logger.error(f"Could not get valid own consumption prediction for location {location.alias}")
+                continue
+            prediction.rename(columns={"value": str(location.residual_long.id)}, inplace=True)
+            predictions.append(prediction)
         for date, daily_df in _get_daily_dfs_from_predictions(predictions).items():
             dts.send_eigenverbrauch_to_impuls_energy_trading(daily_df, prediction_date=date)
         uow.commit()
@@ -282,12 +330,9 @@ def _get_predictions_for_impuls_energy_trading(
     for location in locations:
         if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
             continue
-        if send_even_if_not_sent_to_internal_fahrplanmanagement:
-            mandatory_previous_receivers = None
-            sent_before = None
-        else:
-            mandatory_previous_receivers = enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
-            sent_before = GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
+        mandatory_previous_receivers, sent_before = _query_params_for_impuls_predictions(
+            send_even_if_not_sent_to_internal_fahrplanmanagement
+        )
 
         prediction = location.get_most_recent_prediction(
             prediction_type=prediction_type,
@@ -308,6 +353,16 @@ def _get_predictions_for_impuls_energy_trading(
         df.columns = [str(location.residual_long.id)]
         predictions.append(df)
     return predictions
+
+
+def _query_params_for_impuls_predictions(send_even_if_not_sent_to_internal_fahrplanmanagement: bool):
+    if send_even_if_not_sent_to_internal_fahrplanmanagement:
+        mandatory_previous_receivers = None
+        sent_before = None
+    else:
+        mandatory_previous_receivers = enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT
+        sent_before = GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
+    return mandatory_previous_receivers, sent_before
 
 
 def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfWork):
