@@ -1,5 +1,6 @@
 configuration:
   debug: "True"
+  sentry_enabled: "True"
   mail_recipient_cons: "verbrauchsprognosen@ppa-mailbox.node.energy"
   mail_recipient_prod: "erzeugungsprognosen@ppa-mailbox.node.energy"
   send_predictions_enabled: "True"

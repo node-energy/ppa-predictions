@@ -15,3 +15,4 @@ data:
   SMTP_PORT: "{{.Values.configuration.smtp_port}}"
   SMTP_EMAIL: "{{.Values.configuration.smtp_email}}"
   UPDATE_CRON: "{{.Values.configuration.update_cron}}"
+  SENTRY_ENABLED: "{{.Values.configuration.sentry_enabled}}"
