@@ -1,5 +1,6 @@
 configuration:
   debug: "True"
+  sentry_enabled: "True"
   mail_recipient_cons: "kai.timofejew@node.energy"
   mail_recipient_prod: "kai.timofejew@node.energy"
   send_predictions_enabled: "False"
