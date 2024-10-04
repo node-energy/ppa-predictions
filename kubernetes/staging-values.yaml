@@ -1,6 +1,6 @@
 configuration:
   debug: "True"
-  sentry_enabled: "True"
+  sentry_dsn: "https://446b15db143f9477706fbf13a4f6dbd9@o105024.ingest.us.sentry.io/4507814207815680"  # todo: replace with staging sentry dsn
   mail_recipient_cons: "verbrauchsprognosen@ppa-mailbox.node.energy"
   mail_recipient_prod: "erzeugungsprognosen@ppa-mailbox.node.energy"
   send_predictions_enabled: "False"
