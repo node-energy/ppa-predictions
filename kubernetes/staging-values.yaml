@@ -1,12 +1,13 @@
 configuration:
   debug: "True"
+  sentry_enabled: "True"
   mail_recipient_cons: "verbrauchsprognosen@ppa-mailbox.node.energy"
   mail_recipient_prod: "erzeugungsprognosen@ppa-mailbox.node.energy"
-  send_predictions_enabled: "True"
+  send_predictions_enabled: "False"
   smtp_host: "smtp.office365.com"
   smtp_port: "587"
   smtp_email: "kai.timofejew@node.energy"
-  update_cron: "45 10 * * * "
+  update_cron: "48 10 * * * "
 
 network:
   hostName: "ppapredictions-staging.testsystem.node.energy"
