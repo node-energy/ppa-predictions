@@ -7,7 +7,7 @@ configuration:
   smtp_host: "smtp.office365.com"
   smtp_port: "587"
   smtp_email: "kai.timofejew@node.energy"
-  update_cron: "45 10 * * * "
+  update_cron: "48 10 * * * "
 
 network:
   hostName: "ppapredictions-staging.testsystem.node.energy"
