@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     debug: bool = True
     db_connection_string: str
-    sentry_enabled: bool = False
+    sentry_dsn: str | None = None
     cors_origin: str = "https://localhost:3000"
     smtp_host: str = "smtp.office365.com"
     smtp_port: int = 587
@@ -36,9 +36,9 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-if settings.sentry_enabled:
+if settings.sentry_dsn is not None:
     sentry_sdk.init(
-        dsn="https://446b15db143f9477706fbf13a4f6dbd9@o105024.ingest.us.sentry.io/4507814207815680",
+        dsn=settings.sentry_dsn,
         # Set traces_sample_rate to 1.0 to capture 100%
         # of transactions for tracing.
         traces_sample_rate=1.0,
