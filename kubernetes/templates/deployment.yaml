@@ -26,7 +26,7 @@ spec:
       containers:
         - name: ppa-predictions
           image: "nodeenergy.azurecr.io/ppa-predictions:latest"
-          command: ["uvicorn", "src.main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "8001", "--workers", "2"]
+          command: ["uvicorn", "src.main:app", "--proxy-headers", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]
           resources:
             requests:
               cpu: "50m"

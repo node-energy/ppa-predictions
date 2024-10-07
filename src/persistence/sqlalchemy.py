@@ -2,7 +2,7 @@ from __future__ import annotations
 from uuid import UUID
 from datetime import datetime, date
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
-from sqlalchemy import DateTime, Date, ForeignKey, PickleType, UniqueConstraint
+from sqlalchemy import DateTime, Date, ForeignKey, PickleType
 from typing import Optional
 
 from src.utils.timezone import TIMEZONE_UTC
@@ -130,13 +130,13 @@ class HistoricLoadData(Base, UUIDMixin):
 
 class LocationSettings(Base):
     __tablename__ = "locationsettings"
-    __table_args__ = (UniqueConstraint("location_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     location_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("locations.id"))
     location: Mapped[Optional[Location]] = relationship(
         back_populates="settings",
         foreign_keys=[location_id],
+        single_parent=True,
     )
     active_from: Mapped[date] = mapped_column(Date)
     active_until: Mapped[Optional[date]] = mapped_column(Date)
