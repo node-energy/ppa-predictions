@@ -1,8 +1,8 @@
 """remove unique constraint
 
-Revision ID: ddb3f7d3af36
+Revision ID: 081e8a2e66c3
 Revises: da3e81c1f0e2
-Create Date: 2024-10-04 10:50:33.188614
+Create Date: 2024-10-07 09:28:15.303622
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'ddb3f7d3af36'
+revision: str = '081e8a2e66c3'
 down_revision: Union[str, None] = 'da3e81c1f0e2'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
