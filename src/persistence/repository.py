@@ -260,21 +260,10 @@ class LocationRepository(
 
     def domain_to_db(self, domain_obj: model.Location) -> DBLocation:
         def settings_to_db(
-            domain_id: str, settings: model.LocationSettings
+            settings: model.LocationSettings
         ) -> DBLocationSettings | None:
             if settings is None:
                 return None
-
-            settings_from_db = (
-                self._session.query(LocationSettings)
-                .filter_by(location_id=domain_id)
-                .first()
-            )
-
-            if settings_from_db is not None:
-                settings_from_db.active_from = settings.active_from
-                settings_from_db.active_until = settings.active_until
-                return settings_from_db
 
             return DBLocationSettings(
                 active_from=settings.active_from,
@@ -343,7 +332,7 @@ class LocationRepository(
 
         return DBLocation(
             id=domain_obj.id,
-            settings=settings_to_db(domain_obj.id, domain_obj.settings),
+            settings=settings_to_db(domain_obj.settings),
             state=domain_obj.state.value,
             tso=domain_obj.tso.value,
             alias=domain_obj.alias,
