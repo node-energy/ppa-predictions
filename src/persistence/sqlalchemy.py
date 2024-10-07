@@ -136,6 +136,7 @@ class LocationSettings(Base):
     location: Mapped[Optional[Location]] = relationship(
         back_populates="settings",
         foreign_keys=[location_id],
+        single_parent=True,
     )
     active_from: Mapped[date] = mapped_column(Date)
     active_until: Mapped[Optional[date]] = mapped_column(Date)
