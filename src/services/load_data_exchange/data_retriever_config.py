@@ -23,11 +23,11 @@ class DataRetrieverConfig:
 DATA_RETRIEVER_MAP: dict[DataRetriever, DataRetrieverConfig] = {
     DataRetriever.ENERCAST_SFTP: DataRetrieverConfig(
         EnercastSftpDataRetriever,
-        lambda location_and_producer: location_and_producer.producer.market_location.number,
+        lambda location_and_producer: location_and_producer.location.residual_long.number,
     ),
     DataRetriever.ENERCAST_API: DataRetrieverConfig(
         EnercastApiDataRetriever,
-        lambda location_and_producer: location_and_producer.producer.market_location.number,
+        lambda location_and_producer: location_and_producer.location.producer.residual_long.number,
     ),
     DataRetriever.IMPULS_ENERGY_TRADING_SFTP: DataRetrieverConfig(
         IetSftpGenerationDataRetriever,
