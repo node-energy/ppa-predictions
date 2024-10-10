@@ -4,8 +4,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import Session
 from src.config import settings
-from src.persistence import repository
-from src.persistence.sqlalchemy import Location
+from src.prognosis.persistence import repository
+from src.prognosis.persistence.sqlalchemy import Location
 
 
 class AbstractUnitOfWork(abc.ABC):

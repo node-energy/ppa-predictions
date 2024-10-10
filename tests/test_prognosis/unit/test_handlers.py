@@ -4,19 +4,18 @@ import pandas as pd
 from pandas._testing import assert_frame_equal
 from pandera.typing import DataFrame
 
-from src import enums
-from src.enums import PredictionReceiver, TransmissionSystemOperator, PredictionType
+from src.prognosis import enums
+from src.prognosis.enums import PredictionReceiver, TransmissionSystemOperator, PredictionType
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import MemoryUnitOfWork
 from src.services.load_data_exchange.common import AbstractLoadDataRetriever
 from src.services.data_sender import DataSender
-from src.domain import commands
-from src.domain import model
+from src.prognosis.domain import commands, model
 from src.utils.dataframe_schemas import IetLoadDataSchema
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
-from tests.conftest import ONE_HOUR_BEFORE_GATE_CLOSURE
-from tests.factories import LocationFactory, ProducerFactory, PredictionFactory, PredictionShipmentFactory
-from tests.fakes import FakeEmailSender, FakeIetDataSender
+from tests.test_prognosis.conftest import ONE_HOUR_BEFORE_GATE_CLOSURE
+from tests.test_prognosis.factories import LocationFactory, ProducerFactory, PredictionFactory, PredictionShipmentFactory
+from tests.test_prognosis.fakes import FakeEmailSender, FakeIetDataSender
 
 
 def create_df_with_constant_values(value=42.0):

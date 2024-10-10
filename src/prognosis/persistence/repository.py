@@ -5,19 +5,19 @@ from typing import Any, List, Type, TypeVar, Generic
 
 from pandera.typing import DataFrame
 
-import src.enums
-from src.domain import model
+import src.prognosis.enums
+from src.prognosis.domain import model
 from sqlalchemy.orm import Session
 
-from src.enums import (
+from src.prognosis.enums import (
     Measurand,
     DataRetriever,
     ComponentType,
     PredictionType,
     PredictionReceiver,
 )
-from src.persistence.sqlalchemy import Base as DBBase, LocationSettings
-from src.persistence.sqlalchemy import (
+from src.prognosis.persistence.sqlalchemy import Base as DBBase
+from src.prognosis.persistence.sqlalchemy import (
     Location as DBLocation,
     Component as DBComponent,
     HistoricLoadData as DBHistoricLoadData,
@@ -245,12 +245,12 @@ class LocationRepository(
                 receiver=PredictionReceiver(db_prediction_shipment.receiver),
             )
 
-        state = src.enums.State(db_obj.state)
+        state = src.prognosis.enums.State(db_obj.state)
         return model.Location(
             id=db_obj.id,
             settings=settings_to_domain(db_obj.settings),
             state=state,
-            tso=src.enums.TransmissionSystemOperator(db_obj.tso),
+            tso=src.prognosis.enums.TransmissionSystemOperator(db_obj.tso),
             alias=db_obj.alias,
             residual_short=market_location_to_domain(db_obj.residual_short),
             residual_long=market_location_to_domain(db_obj.residual_long),

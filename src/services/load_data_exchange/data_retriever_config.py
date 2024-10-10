@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import Callable, Type
 
-from src.domain.model import Producer, Location
-from src.enums import DataRetriever
+from src.prognosis.domain.model import Producer, Location
+from src.prognosis.enums import DataRetriever
 from src.services.load_data_exchange.common import AbstractLoadDataRetriever
 from src.services.load_data_exchange.enercast import EnercastSftpDataRetriever, EnercastApiDataRetriever
 from src.services.load_data_exchange.impuls_energy_trading import IetSftpGenerationDataRetriever

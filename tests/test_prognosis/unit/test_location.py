@@ -4,13 +4,13 @@ import pandas as pd
 from pandas.testing import assert_frame_equal
 from pandera.typing import DataFrame
 
-from src.domain.model import (
+from src.prognosis.domain.model import (
     HistoricLoadData,
     Location,
     Prediction,
     Producer, MarketLocation,
 )
-from src.enums import PredictionType, DataRetriever, Measurand
+from src.prognosis.enums import PredictionType, DataRetriever, Measurand
 from src.utils.dataframe_schemas import TimeSeriesSchema
 from src.utils.timezone import TIMEZONE_BERLIN
 

@@ -3,9 +3,10 @@ import inspect
 from typing import Union
 
 import src.services.load_data_exchange.common
-from src.domain import events, commands
+from src.prognosis.domain import commands
+from src.prognosis.domain import events
 from src.infrastructure import unit_of_work
-from src.domain.handlers import COMMAND_HANDLERS, EVENT_HANDLERS
+from src.prognosis.domain import COMMAND_HANDLERS, EVENT_HANDLERS
 from src.services import data_sender
 
 Message = Union[commands.Command, events.Event]

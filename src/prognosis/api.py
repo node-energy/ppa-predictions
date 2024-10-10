@@ -5,11 +5,11 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, TypeAdapter
-from .common import get_bus, BasePagination
+from src.api.common import get_bus, BasePagination
 from src.infrastructure.message_bus import MessageBus
-from src.domain import commands
-from src.domain.model import Location as DLocation
-from src.enums import DataRetriever, State, TransmissionSystemOperator
+from src.prognosis.domain import commands
+from src.prognosis.domain.model import Location as DLocation
+from src.prognosis.enums import DataRetriever, State, TransmissionSystemOperator
 
 router = APIRouter(prefix="/locations")
 

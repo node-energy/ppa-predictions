@@ -7,7 +7,7 @@ import pandas as pd
 from pandera.typing import DataFrame
 
 from src.config import settings
-from src.enums import Measurand
+from src.prognosis.enums import Measurand
 from src.services.load_data_exchange.common import SftpMixin, AbstractLoadDataRetriever, \
     SftpDownloadGenerationPrediction
 from src.utils.dataframe_schemas import TimeSeriesSchema

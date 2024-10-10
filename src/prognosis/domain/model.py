@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 
 from pandera.typing import DataFrame
 
-from src.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver, TransmissionSystemOperator
+from src.prognosis.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver, TransmissionSystemOperator
 from src.utils.dataframe_schemas import TimeSeriesSchema
 from src.utils.timezone import utc_now
 

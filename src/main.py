@@ -9,9 +9,9 @@ from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 from src.services.load_data_exchange.optinode_database import OptinodeDataRetriever
 from src.services.data_sender import DataSender
-from src.api import locations as locations_api
+from src.prognosis import api as locations_api
 from src.api.middleware import ApiKeyAuthMiddleware
-from src.domain import commands
+from src.prognosis.domain import commands
 from src.utils.timezone import TIMEZONE_BERLIN
 
 logger = logging.getLogger(__name__)
