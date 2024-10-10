@@ -5,7 +5,7 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from src.persistence.sqlalchemy import DeclarativeBase, Base, Location, Component, Prediction, HistoricLoadData
+from src.prognosis.persistence.sqlalchemy import Base
 from src.config import settings
 
 # this is the Alembic Config object, which provides

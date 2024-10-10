@@ -3,9 +3,9 @@ import uuid
 
 import pandas as pd
 
-from src.persistence.repository import LocationRepository
-from src.persistence.sqlalchemy import Location as DBLocation
-from tests.factories import LocationFactory
+from src.prognosis.persistence import LocationRepository
+from src.prognosis.persistence.sqlalchemy import Location as DBLocation
+from tests.test_prognosis.factories import LocationFactory
 
 
 def create_df_with_constant_values(value=42):

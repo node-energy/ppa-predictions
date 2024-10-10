@@ -7,10 +7,9 @@ import random
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from src import enums
-from src.config import settings
-from src.domain import model
-from src.persistence.sqlalchemy import Base
+from src.prognosis import enums
+from src.prognosis.domain import model
+from src.prognosis.persistence.sqlalchemy import Base
 
 
 @pytest.fixture

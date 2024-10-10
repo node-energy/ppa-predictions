@@ -8,7 +8,7 @@ import pandera
 from pandera.typing import DataFrame
 from paramiko import SSHClient, AutoAddPolicy, SFTPClient
 
-from src.enums import Measurand
+from src.prognosis.enums import Measurand
 from src.utils.dataframe_schemas import TimeSeriesSchema
 
 

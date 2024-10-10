@@ -7,9 +7,9 @@ from factory import Sequence, SubFactory, LazyFunction
 from faker import Faker
 from pandera.typing import DataFrame
 
-from src.domain import model
-from src import enums
-from src.enums import PredictionReceiver
+from src.prognosis.domain import model
+from src.prognosis import enums
+from src.prognosis.enums import PredictionReceiver
 from src.utils.dataframe_schemas import TimeSeriesSchema
 from src.utils.timezone import TIMEZONE_BERLIN
 

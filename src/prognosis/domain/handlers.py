@@ -10,22 +10,24 @@ from uuid import UUID
 import pandas as pd
 from pandera.typing import DataFrame
 
-import src.enums
+import src.prognosis.enums
 import src.services.load_data_exchange.common
 from src.config import settings
-from src.domain import commands, events
-from src.domain import model
-from src.domain.model import MarketLocation, PredictionShipment
+from src.prognosis.domain import commands
+from src.prognosis.domain import events
+from src.prognosis.domain import model
+from src.prognosis.domain.model import MarketLocation, PredictionShipment
 from src.infrastructure import unit_of_work
-from src.services import predictor, data_sender
+from src.services import data_sender
+from src.prognosis.services import predictor
 from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP, LocationAndProducer
 from src.services.load_data_exchange.impuls_energy_trading import TIMEZONE_FILENAMES
 from src.utils.dataframe_schemas import IetLoadDataSchema, TimeSeriesSchema, FahrplanmanagementSchema
 from src.utils.external_schedules import GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
 from src.utils.split_df_by_day import split_df_by_day
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
-from src.enums import Measurand, DataRetriever, PredictionType
-from src import enums
+from src.prognosis.enums import Measurand, DataRetriever, PredictionType
+from src.prognosis import enums
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +143,7 @@ def calculate_predictions(
             location.add_prediction(
                 model.Prediction(
                     df=DataFrame[TimeSeriesSchema](local_consumption_prediction_df),
-                    type=src.enums.PredictionType.CONSUMPTION,
+                    type=src.prognosis.enums.PredictionType.CONSUMPTION,
                 )
             )
 
@@ -160,7 +162,7 @@ def calculate_predictions(
                                     start_date, datetime.time.min, tzinfo=TIMEZONE_BERLIN
                                 ),
                             )),
-                            type=src.enums.PredictionType.PRODUCTION
+                            type=src.prognosis.enums.PredictionType.PRODUCTION
                         )
                     )
 
@@ -206,7 +208,7 @@ def send_predictions(
         #         short_prediction.shipments.append(
         #             model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
         #         )
-        long_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_LONG)
+        long_prediction = location.get_most_recent_prediction(src.prognosis.enums.PredictionType.RESIDUAL_LONG)
         long_prediction_df = FahrplanmanagementSchema.from_time_series_schema(long_prediction.df, location.residual_long.number)
         if long_prediction:
             long_prediction_sent = dts.send_to_internal_fahrplanmanagement(
@@ -226,8 +228,8 @@ def send_predictions(
         # internal fahrplanmanagement.
         # This is not the perfect model, maybe it would be better to store input predictions on residuals.
 
-        consumption_prediction = location.get_most_recent_prediction(src.enums.PredictionType.CONSUMPTION)
-        production_prediction = location.get_most_recent_prediction(src.enums.PredictionType.PRODUCTION)
+        consumption_prediction = location.get_most_recent_prediction(src.prognosis.enums.PredictionType.CONSUMPTION)
+        production_prediction = location.get_most_recent_prediction(src.prognosis.enums.PredictionType.PRODUCTION)
         # if not location.has_production:
         #     if short_prediction_sent:
         #         consumption_prediction.shipments.append(
@@ -370,7 +372,7 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
         producers = []
         for p in cmd.producers:
             market_location = _build_market_location(
-                id_=p["market_location_id"], number=p["market_location_number"], measurand=src.enums.Measurand.NEGATIVE,
+                id_=p["market_location_id"], number=p["market_location_number"], measurand=src.prognosis.enums.Measurand.NEGATIVE,
             )
             producer = _build_producer(
                 id_=p["id"], name=p["name"], market_location=market_location, prognosis_data_retriever=p["prognosis_data_retriever"]
@@ -378,10 +380,10 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
             producers.append(producer)
 
         residual_short = _build_market_location(
-                id_=cmd.residual_short["id"], number=cmd.residual_short["number"], measurand=src.enums.Measurand.POSITIVE,
+                id_=cmd.residual_short["id"], number=cmd.residual_short["number"], measurand=src.prognosis.enums.Measurand.POSITIVE,
             )
         residual_long = _build_market_location(
-                id_=cmd.residual_long["id"], number=cmd.residual_long["number"], measurand=src.enums.Measurand.NEGATIVE,
+                id_=cmd.residual_long["id"], number=cmd.residual_long["number"], measurand=src.prognosis.enums.Measurand.NEGATIVE,
             ) if cmd.residual_long else None
 
         location = model.Location(
@@ -403,7 +405,7 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
         return location
 
 
-def _build_market_location(id_: Optional[uuid.UUID], number: str, measurand: src.enums.Measurand) -> model.MarketLocation:
+def _build_market_location(id_: Optional[uuid.UUID], number: str, measurand: src.prognosis.enums.Measurand) -> model.MarketLocation:
     malo = model.MarketLocation(
         number=number,
         measurand=measurand,
@@ -413,7 +415,7 @@ def _build_market_location(id_: Optional[uuid.UUID], number: str, measurand: src
     return malo
 
 
-def _build_producer(id_: Optional[uuid.UUID], name: str, market_location: model.MarketLocation, prognosis_data_retriever: src.enums.DataRetriever) -> model.Producer:
+def _build_producer(id_: Optional[uuid.UUID], name: str, market_location: model.MarketLocation, prognosis_data_retriever: src.prognosis.enums.DataRetriever) -> model.Producer:
     producer = model.Producer(
         name=name,
         market_location=market_location,

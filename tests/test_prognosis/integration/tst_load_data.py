@@ -8,7 +8,7 @@ import pytest
 from pandas._testing import assert_frame_equal
 from pandera.typing import DataFrame
 
-from src.enums import Measurand
+from src.prognosis.enums import Measurand
 from src.services.load_data_exchange.optinode_database import OptinodeDataRetriever
 from src.services.load_data_exchange.impuls_energy_trading import IetSftpGenerationDataRetriever, \
     IetSftpEigenverbrauchDataSender, IetSftpResidualLongDataSender
@@ -17,7 +17,7 @@ from src.services.load_data_exchange.common import AbstractSftpClient
 from src.utils.dataframe_schemas import IetLoadDataSchema
 from src.utils.exceptions import ConflictingEnergyData, NoMeteringOrMarketLocationFound
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
-from tests.integration import test_files
+from tests.test_prognosis.integration import test_files
 
 
 def read_expected_df(file_name):

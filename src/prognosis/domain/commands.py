@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, date
 from dataclasses import dataclass
 from typing import Literal, Optional
-from src.enums import DataRetriever, State, TransmissionSystemOperator
+from src.prognosis.enums import DataRetriever, State, TransmissionSystemOperator
 
 
 class Command:

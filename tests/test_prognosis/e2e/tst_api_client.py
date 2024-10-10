@@ -5,17 +5,17 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from freezegun import freeze_time
 
-from src import enums
+from src.prognosis import enums
 from src.config import settings
-from src.enums import State, PredictionReceiver, TransmissionSystemOperator
+from src.prognosis.enums import State, PredictionReceiver, TransmissionSystemOperator
 from src.main import app
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 from src.services.load_data_exchange.common import APILoadDataRetriever
 from src.services.data_sender import DataSender
-from tests.conftest import ONE_HOUR_BEFORE_GATE_CLOSURE
-from tests.factories import LocationFactory, PredictionFactory, ProducerFactory, PredictionShipmentFactory
-from tests.fakes import FakeEmailSender, FakeIetDataSender
+from tests.test_prognosis.conftest import ONE_HOUR_BEFORE_GATE_CLOSURE
+from tests.test_prognosis.factories import LocationFactory, PredictionFactory, ProducerFactory, PredictionShipmentFactory
+from tests.test_prognosis.fakes import FakeEmailSender, FakeIetDataSender
 
 client = TestClient(app, headers={"X-Api-Key": settings.api_key})
 ALEMBIC_BASE_PATH = Path(__file__).parent.parent.parent.resolve()

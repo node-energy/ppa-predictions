@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split, GridSearchCV
 
-from src.enums import State
+from src.prognosis.enums import State
 
 
 @dataclass

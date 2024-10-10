@@ -2,16 +2,14 @@ import datetime as dt
 import string
 
 import pytest
-import uuid
-import pandas as pd
 import random
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.orm import sessionmaker
 
-from src import enums
-from src.domain import model
-from src.domain.model import MarketLocation
-from src.enums import TransmissionSystemOperator
+from src.prognosis import enums
+from src.prognosis.domain import model
+from src.prognosis.domain.model import MarketLocation
+from src.prognosis.enums import TransmissionSystemOperator
 
 
 @pytest.fixture

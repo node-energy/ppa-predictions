@@ -1,6 +1,6 @@
 import requests
 
-from src.enums import DataRetriever, TransmissionSystemOperator
+from src.prognosis.enums import DataRetriever, TransmissionSystemOperator
 
 url = "http://127.0.0.1:8000/locations/"
 headers = {"Content-Type": "application/json", "X-API-KEY": "node"}
