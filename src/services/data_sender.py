@@ -7,12 +7,12 @@ from src.services.load_data_exchange.email import ForecastEmailSender, AbstractE
 from src.services.load_data_exchange.common import AbstractLoadDataSender
 from src.services.load_data_exchange.impuls_energy_trading import IetSftpEigenverbrauchDataSender, \
     IetSftpResidualLongDataSender
-from src.utils.dataframe_schemas import TimeSeriesSchema
+from src.utils.dataframe_schemas import TimeSeriesSchema, FahrplanmanagementSchema
 
 
 class AbstractDataSender(abc.ABC):
     @abc.abstractmethod
-    def send_to_internal_fahrplanmanagement(self, data: DataFrame[TimeSeriesSchema], *args, **kwargs) -> bool:
+    def send_to_internal_fahrplanmanagement(self, data: DataFrame[FahrplanmanagementSchema], *args, **kwargs) -> bool:
         raise NotImplementedError()
 
     @abc.abstractmethod
