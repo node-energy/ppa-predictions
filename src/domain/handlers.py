@@ -262,7 +262,7 @@ def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
         )
 
         for location in locations:
-            if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
+            if not _location_is_assigned_to_impuls(location):
                 continue
             prediction = location.get_predicted_own_consumption(
                 mandatory_previous_receivers=mandatory_previous_receivers,
@@ -293,6 +293,10 @@ def send_residual_long_predictions_to_impuls_energy_trading(
         for date, daily_df in _get_daily_dfs_from_predictions(predictions).items():
             dts.send_residual_long_to_impuls_energy_trading(daily_df, prediction_date=date)
         uow.commit()
+
+
+def _location_is_assigned_to_impuls(location: model.Location) -> bool:
+    return location.has_production and location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP
 
 
 def _get_daily_dfs_from_predictions(
@@ -332,7 +336,7 @@ def _get_predictions_for_impuls_energy_trading(
     predictions: [DataFrame[TimeSeriesSchema]] = []
     locations: [model.Location] = uow.locations.get_all()
     for location in locations:
-        if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
+        if not _location_is_assigned_to_impuls(location):
             continue
         mandatory_previous_receivers, sent_before = _query_params_for_impuls_predictions(
             send_even_if_not_sent_to_internal_fahrplanmanagement
