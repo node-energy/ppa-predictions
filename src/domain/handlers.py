@@ -206,18 +206,21 @@ def send_predictions(
         #         short_prediction.shipments.append(
         #             model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
         #         )
-        long_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_LONG)
-        long_prediction_df = FahrplanmanagementSchema.from_time_series_schema(long_prediction.df, location.residual_long.number)
-        if long_prediction:
-            long_prediction_sent = dts.send_to_internal_fahrplanmanagement(
-                data=long_prediction_df,
-                file_name=f"{location.residual_long.number}_{location.alias if location.alias else ''}_residual_long_{today}.csv",
-                recipient=settings.mail_recipient_prod
-            )
-            if long_prediction_sent:
-                long_prediction.shipments.append(
-                    model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+        short_prediction_sent = False   # todo remove this line when the above code is uncommented
+
+        if location.has_production:
+            long_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_LONG)
+            long_prediction_df = FahrplanmanagementSchema.from_time_series_schema(long_prediction.df, location.residual_long.number)
+            if long_prediction:
+                long_prediction_sent = dts.send_to_internal_fahrplanmanagement(
+                    data=long_prediction_df,
+                    file_name=f"{location.residual_long.number}_{location.alias if location.alias else ''}_residual_long_{today}.csv",
+                    recipient=settings.mail_recipient_prod
                 )
+                if long_prediction_sent:
+                    long_prediction.shipments.append(
+                        model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+                    )
 
         # if residuals where successfully sent, also mark the consumption and production predictions as sent because
         # they are the base for computing the residuals.
@@ -228,19 +231,20 @@ def send_predictions(
 
         consumption_prediction = location.get_most_recent_prediction(src.enums.PredictionType.CONSUMPTION)
         production_prediction = location.get_most_recent_prediction(src.enums.PredictionType.PRODUCTION)
-        # if not location.has_production:
-        #     if short_prediction_sent:
-        #         consumption_prediction.shipments.append(
-        #             model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
-        #         )
-        # else:
-        #     if short_prediction_sent or long_prediction_sent:
-        consumption_prediction.shipments.append(
-            model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
-        )
-        production_prediction.shipments.append(
-            model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
-        )
+        if not location.has_production:
+            if short_prediction_sent:
+                consumption_prediction.shipments.append(
+                    model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+                )
+        else:
+            if short_prediction_sent or long_prediction_sent:
+                # both residual_short and residual_long use consumption and production predictions as input
+                consumption_prediction.shipments.append(
+                    model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+                )
+                production_prediction.shipments.append(
+                    model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+                )
         uow.locations.update(location)
         uow.commit()
 
