@@ -192,21 +192,20 @@ def send_predictions(
     today = datetime.date.today().strftime("%Y-%m-%d")
     with uow:
         location: model.Location = uow.locations.get(UUID(cmd.location_id))
-        # TODO it should be possible to configure whether this should be send or not. Currently it is not needed for the
-        # single location in the database
-        # short_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_SHORT)
-        # short_prediction_df = FahrplanmanagementSchema.from_time_series_schema(short_prediction.df, location.residual_short.number)
-        # if short_prediction:
-        #     short_prediction_sent = dts.send_to_internal_fahrplanmanagement(
-        #         data=short_prediction_df,
-        #         file_name=f"{location.residual_short.number}_{location.alias if location.alias else ''}_residual_short_{today}.csv",
-        #         recipient=settings.mail_recipient_cons
-        #     )
-        #     if short_prediction_sent:
-        #         short_prediction.shipments.append(
-        #             model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
-        #         )
-        short_prediction_sent = False   # todo remove this line when the above code is uncommented
+        short_prediction_sent = False
+        if location.settings.send_consumption_predictions_to_fahrplanmanagement:
+            short_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_SHORT)
+            short_prediction_df = FahrplanmanagementSchema.from_time_series_schema(short_prediction.df, location.residual_short.number)
+            if short_prediction:
+                short_prediction_sent = dts.send_to_internal_fahrplanmanagement(
+                    data=short_prediction_df,
+                    file_name=f"{location.residual_short.number}_{location.alias if location.alias else ''}_residual_short_{today}.csv",
+                    recipient=settings.mail_recipient_cons
+                )
+                if short_prediction_sent:
+                    short_prediction.shipments.append(
+                        model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+                    )
 
         if location.has_production:
             long_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_LONG)
@@ -262,7 +261,7 @@ def send_eigenverbrauchs_predictions_to_impuls_energy_trading(
         )
 
         for location in locations:
-            if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
+            if not _location_is_assigned_to_impuls(location):
                 continue
             prediction = location.get_predicted_own_consumption(
                 mandatory_previous_receivers=mandatory_previous_receivers,
@@ -293,6 +292,10 @@ def send_residual_long_predictions_to_impuls_energy_trading(
         for date, daily_df in _get_daily_dfs_from_predictions(predictions).items():
             dts.send_residual_long_to_impuls_energy_trading(daily_df, prediction_date=date)
         uow.commit()
+
+
+def _location_is_assigned_to_impuls(location: model.Location) -> bool:
+    return location.has_production and location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP
 
 
 def _get_daily_dfs_from_predictions(
@@ -332,7 +335,7 @@ def _get_predictions_for_impuls_energy_trading(
     predictions: [DataFrame[TimeSeriesSchema]] = []
     locations: [model.Location] = uow.locations.get_all()
     for location in locations:
-        if not location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP:
+        if not _location_is_assigned_to_impuls(location):
             continue
         mandatory_previous_receivers, sent_before = _query_params_for_impuls_predictions(
             send_even_if_not_sent_to_internal_fahrplanmanagement
@@ -398,6 +401,7 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
             settings=model.LocationSettings(
                 active_from=cmd.settings_active_from,
                 active_until=cmd.settings_active_until,
+                send_consumption_predictions_to_fahrplanmanagement=cmd.settings_send_consumption_predictions_to_fahrplanmanagement,
             ),
         )
         if cmd.id:
@@ -435,7 +439,9 @@ def update_location_settings(
         location: model.Location = uow.locations.get(UUID(cmd.location_id))
 
         location.settings = model.LocationSettings(
-            active_from=cmd.settings_active_from, active_until=cmd.settings_active_until
+            active_from=cmd.settings_active_from,
+            active_until=cmd.settings_active_until,
+            send_consumption_predictions_to_fahrplanmanagement=cmd.settings_send_consumption_predictions_to_fahrplanmanagement,
         )
         uow.locations.update(location)
         uow.commit()

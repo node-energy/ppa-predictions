@@ -276,3 +276,4 @@ class PredictionSettings:
 class LocationSettings(ValueObject):
     active_from: date
     active_until: Optional[date]
+    send_consumption_predictions_to_fahrplanmanagement: bool

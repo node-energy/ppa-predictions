@@ -140,3 +140,4 @@ class LocationSettings(Base):
     )
     active_from: Mapped[date] = mapped_column(Date)
     active_until: Mapped[Optional[date]] = mapped_column(Date)
+    send_consumption_predictions_to_fahrplanmanagement: Mapped[bool]

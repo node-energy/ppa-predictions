@@ -40,6 +40,7 @@ class CreateLocation(Command):
     producers: Optional[list[dict[str, str | DataRetriever | uuid.UUID]]]
     settings_active_from: date
     settings_active_until: Optional[date]
+    settings_send_consumption_predictions_to_fahrplanmanagement: bool
 
 
 @dataclass
@@ -47,6 +48,7 @@ class UpdateLocationSettings(Command):
     location_id: str
     settings_active_from: date
     settings_active_until: Optional[date]
+    settings_send_consumption_predictions_to_fahrplanmanagement: bool
 
 
 @dataclass
