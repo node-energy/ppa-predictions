@@ -129,6 +129,14 @@ def calculate_predictions(
                 start=datetime.datetime.combine(start_date, datetime.time.min, tzinfo=TIMEZONE_BERLIN),
                 end=datetime.datetime.combine(end_date, datetime.time.max, tzinfo=TIMEZONE_BERLIN)
             ),
+            input_period=predictor.Period(
+                start=datetime.datetime.combine(
+                    start_date - datetime.timedelta(days=location.settings.historic_days_for_consumption_prediction), datetime.time.min, tzinfo=TIMEZONE_BERLIN
+                ),
+                end=datetime.datetime.combine(
+                    start_date - datetime.timedelta(days=1), datetime.time.max, tzinfo=TIMEZONE_BERLIN
+                )
+            ),
         )
         rf_predictor = predictor.RandomForestRegressionPredictor(
             input_df=local_consumption_df, settings=predictor_setting
@@ -402,6 +410,7 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
                 active_from=cmd.settings_active_from,
                 active_until=cmd.settings_active_until,
                 send_consumption_predictions_to_fahrplanmanagement=cmd.settings_send_consumption_predictions_to_fahrplanmanagement,
+                historic_days_for_consumption_prediction=cmd.settings_historic_days_for_consumption_prediction,
             ),
         )
         if cmd.id:
@@ -442,6 +451,7 @@ def update_location_settings(
             active_from=cmd.settings_active_from,
             active_until=cmd.settings_active_until,
             send_consumption_predictions_to_fahrplanmanagement=cmd.settings_send_consumption_predictions_to_fahrplanmanagement,
+            historic_days_for_consumption_prediction=cmd.settings_historic_days_for_consumption_prediction,
         )
         uow.locations.update(location)
         uow.commit()

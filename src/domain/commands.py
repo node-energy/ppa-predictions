@@ -41,6 +41,7 @@ class CreateLocation(Command):
     settings_active_from: date
     settings_active_until: Optional[date]
     settings_send_consumption_predictions_to_fahrplanmanagement: bool
+    settings_historic_days_for_consumption_prediction: int
 
 
 @dataclass
@@ -49,6 +50,7 @@ class UpdateLocationSettings(Command):
     settings_active_from: date
     settings_active_until: Optional[date]
     settings_send_consumption_predictions_to_fahrplanmanagement: bool
+    settings_historic_days_for_consumption_prediction: int
 
 
 @dataclass
