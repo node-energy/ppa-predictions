@@ -169,6 +169,8 @@ class LocationRepository(
             return model.LocationSettings(
                 active_from=db_setting.active_from,
                 active_until=db_setting.active_until,
+                send_consumption_predictions_to_fahrplanmanagement=db_setting.send_consumption_predictions_to_fahrplanmanagement,
+                historic_days_for_consumption_prediction=db_setting.historic_days_for_consumption_prediction,
             )
 
         def historic_load_data_to_domain(
@@ -268,6 +270,8 @@ class LocationRepository(
             return DBLocationSettings(
                 active_from=settings.active_from,
                 active_until=settings.active_until,
+                send_consumption_predictions_to_fahrplanmanagement=settings.send_consumption_predictions_to_fahrplanmanagement,
+                historic_days_for_consumption_prediction=settings.historic_days_for_consumption_prediction,
             )
 
         def historic_load_data_to_db(

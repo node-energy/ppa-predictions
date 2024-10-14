@@ -95,9 +95,8 @@ class AbstractPredictor(abc.ABC):
 
 class RandomForestRegressionPredictor(AbstractPredictor):
     def create_prediction(self):
-        # Slice df to period if input period given TODO
         if self.settings.input_period:
-            pass
+            self.input_df = self.input_df[self.settings.input_period.start: self.settings.input_period.end].copy()
 
         self.input_df.dropna(inplace=True)
 

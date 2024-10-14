@@ -29,6 +29,8 @@ class Producer(BaseModel):
 class LocationSettings(BaseModel):
     active_from: dt.date
     active_until: Optional[dt.date] = None
+    send_consumption_predictions_to_fahrplanmanagement: bool
+    historic_days_for_consumption_prediction: int = 50
 
 
 class Location(BaseModel):
@@ -63,6 +65,8 @@ class Location(BaseModel):
                 active_until=location.settings.active_until
                 if location.settings.active_until
                 else None,
+                send_consumption_predictions_to_fahrplanmanagement=location.settings.send_consumption_predictions_to_fahrplanmanagement,
+                historic_days_for_consumption_prediction=location.settings.historic_days_for_consumption_prediction,
             ),
         )
 
@@ -126,6 +130,8 @@ def add_location(bus: Annotated[MessageBus, Depends(get_bus)], fa_location: Loca
             settings_active_until=fa_location.settings.active_until
             if fa_location.settings.active_until
             else None,
+            settings_send_consumption_predictions_to_fahrplanmanagement=fa_location.settings.send_consumption_predictions_to_fahrplanmanagement,
+            settings_historic_days_for_consumption_prediction=fa_location.settings.historic_days_for_consumption_prediction,
         )
     )
     return Location.model_validate(
@@ -147,20 +153,12 @@ def update_location_settings(
                 location_id=location_id,
                 settings_active_from=fa_location_settings.active_from,
                 settings_active_until=fa_location_settings.active_until,
+                settings_send_consumption_predictions_to_fahrplanmanagement=fa_location_settings.send_consumption_predictions_to_fahrplanmanagement,
+                settings_historic_days_for_consumption_prediction=fa_location_settings.historic_days_for_consumption_prediction,
             )
         )
         return Location.model_validate(
-            Location(
-                id=str(new_location.id),
-                state=new_location.state,
-                alias=new_location.alias,
-                tso=new_location.tso,
-                residual_short=MarketLocation(number=new_location.residual_short.number),
-                settings=LocationSettings(
-                    active_from=new_location.settings.active_from,
-                    active_until=new_location.settings.active_until,
-                ),
-            )
+            Location.from_domain(new_location)
         )
 
 

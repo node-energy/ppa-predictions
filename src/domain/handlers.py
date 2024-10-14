@@ -129,6 +129,14 @@ def calculate_predictions(
                 start=datetime.datetime.combine(start_date, datetime.time.min, tzinfo=TIMEZONE_BERLIN),
                 end=datetime.datetime.combine(end_date, datetime.time.max, tzinfo=TIMEZONE_BERLIN)
             ),
+            input_period=predictor.Period(
+                start=datetime.datetime.combine(
+                    start_date - datetime.timedelta(days=location.settings.historic_days_for_consumption_prediction), datetime.time.min, tzinfo=TIMEZONE_BERLIN
+                ),
+                end=datetime.datetime.combine(
+                    start_date - datetime.timedelta(days=1), datetime.time.max, tzinfo=TIMEZONE_BERLIN
+                )
+            ),
         )
         rf_predictor = predictor.RandomForestRegressionPredictor(
             input_df=local_consumption_df, settings=predictor_setting
@@ -192,21 +200,20 @@ def send_predictions(
     today = datetime.date.today().strftime("%Y-%m-%d")
     with uow:
         location: model.Location = uow.locations.get(UUID(cmd.location_id))
-        # TODO it should be possible to configure whether this should be send or not. Currently it is not needed for the
-        # single location in the database
-        # short_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_SHORT)
-        # short_prediction_df = FahrplanmanagementSchema.from_time_series_schema(short_prediction.df, location.residual_short.number)
-        # if short_prediction:
-        #     short_prediction_sent = dts.send_to_internal_fahrplanmanagement(
-        #         data=short_prediction_df,
-        #         file_name=f"{location.residual_short.number}_{location.alias if location.alias else ''}_residual_short_{today}.csv",
-        #         recipient=settings.mail_recipient_cons
-        #     )
-        #     if short_prediction_sent:
-        #         short_prediction.shipments.append(
-        #             model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
-        #         )
-        short_prediction_sent = False   # todo remove this line when the above code is uncommented
+        short_prediction_sent = False
+        if location.settings.send_consumption_predictions_to_fahrplanmanagement:
+            short_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_SHORT)
+            short_prediction_df = FahrplanmanagementSchema.from_time_series_schema(short_prediction.df, location.residual_short.number)
+            if short_prediction:
+                short_prediction_sent = dts.send_to_internal_fahrplanmanagement(
+                    data=short_prediction_df,
+                    file_name=f"{location.residual_short.number}_{location.alias if location.alias else ''}_residual_short_{today}.csv",
+                    recipient=settings.mail_recipient_cons
+                )
+                if short_prediction_sent:
+                    short_prediction.shipments.append(
+                        model.PredictionShipment(receiver=enums.PredictionReceiver.INTERNAL_FAHRPLANMANAGEMENT)
+                    )
 
         if location.has_production:
             long_prediction = location.get_most_recent_prediction(src.enums.PredictionType.RESIDUAL_LONG)
@@ -402,6 +409,8 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
             settings=model.LocationSettings(
                 active_from=cmd.settings_active_from,
                 active_until=cmd.settings_active_until,
+                send_consumption_predictions_to_fahrplanmanagement=cmd.settings_send_consumption_predictions_to_fahrplanmanagement,
+                historic_days_for_consumption_prediction=cmd.settings_historic_days_for_consumption_prediction,
             ),
         )
         if cmd.id:
@@ -439,7 +448,10 @@ def update_location_settings(
         location: model.Location = uow.locations.get(UUID(cmd.location_id))
 
         location.settings = model.LocationSettings(
-            active_from=cmd.settings_active_from, active_until=cmd.settings_active_until
+            active_from=cmd.settings_active_from,
+            active_until=cmd.settings_active_until,
+            send_consumption_predictions_to_fahrplanmanagement=cmd.settings_send_consumption_predictions_to_fahrplanmanagement,
+            historic_days_for_consumption_prediction=cmd.settings_historic_days_for_consumption_prediction,
         )
         uow.locations.update(location)
         uow.commit()
