@@ -18,7 +18,7 @@ from src.domain import model
 from src.domain.model import MarketLocation, PredictionShipment
 from src.infrastructure import unit_of_work
 from src.services import predictor, data_sender
-from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP, LocationAndProducer
+from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP
 from src.services.load_data_exchange.impuls_energy_trading import TIMEZONE_FILENAMES
 from src.utils.dataframe_schemas import IetLoadDataSchema, TimeSeriesSchema, FahrplanmanagementSchema
 from src.utils.external_schedules import GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
