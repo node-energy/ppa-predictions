@@ -158,7 +158,7 @@ def calculate_predictions(
                 data_retriever_config = DATA_RETRIEVER_MAP[location.producers[0].prognosis_data_retriever]
                 data_retriever = data_retriever_config.data_retriever()
                 for producer in location.producers:
-                    asset_identifier = data_retriever_config.asset_identifier_func(LocationAndProducer(location, producer))
+                    asset_identifier = data_retriever_config.asset_identifier_func(location)
                     location.add_prediction(
                         model.Prediction(
                             df=DataFrame[TimeSeriesSchema](data_retriever.get_data(
