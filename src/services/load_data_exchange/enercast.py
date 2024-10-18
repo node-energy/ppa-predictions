@@ -44,7 +44,7 @@ class EnercastSftpClient(SftpMixin):
         for file_name in self._sftp.listdir():
             match = enercast_generation_file_name_match(file_name)
             if match and match["asset_identifier"] == asset_identifier:
-                if start and datetime.datetime.strptime(match["timestamp"], TIMESTAMP_FORMAT) + datetime.timedelta(days=7) < start:
+                if start and datetime.datetime.strptime(match["timestamp"], TIMESTAMP_FORMAT).astimezone(TIMEZONE_BERLIN) + datetime.timedelta(days=7) < start:
                     continue
                 file_names.append(file_name)
                 file_names.append(file_name)
