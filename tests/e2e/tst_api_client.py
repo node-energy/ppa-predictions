@@ -54,7 +54,11 @@ class TestLocation:
                     "state": State.BERLIN.value,
                     "tso": TransmissionSystemOperator.AMPRION.value,
                     "residual_short": {"number": "market_location-1"},
-                    "settings": {"active_from": "2024-01-01"},
+                    "settings": {
+                        "active_from": "2024-01-01",
+                        "send_consumption_predictions_to_fahrplanmanagement": True,
+                        "historic_days_for_consumption_prediction": 50,
+                    },
                 }, id="only mandatory fields"
             ),
             pytest.param({
@@ -72,7 +76,12 @@ class TestLocation:
                             "prognosis_data_retriever": "impuls_energy_trading_sftp"
                         }
                     ],
-                    "settings": {"active_from": "2024-01-01", "active_until": None},
+                    "settings": {
+                        "active_from": "2024-01-01",
+                        "active_until": None,
+                        "send_consumption_predictions_to_fahrplanmanagement": True,
+                        "historic_days_for_consumption_prediction": 50,
+                    },
                 }, id="all fields but no ids specified"
             ),
             pytest.param({
@@ -93,7 +102,12 @@ class TestLocation:
                             "prognosis_data_retriever": "impuls_energy_trading_sftp"
                         }
                     ],
-                    "settings": {"active_from": "2024-01-01", "active_until": None},
+                    "settings": {
+                        "active_from": "2024-01-01",
+                        "active_until": None,
+                        "send_consumption_predictions_to_fahrplanmanagement": True,
+                        "historic_days_for_consumption_prediction": 50,
+                    },
                 }, id="all fields including all possible ids"
             ),
         ]
@@ -129,7 +143,9 @@ class TestLocation:
             ],
             'settings': {
                 'active_from': '2024-01-01',
-                'active_until': None
+                'active_until': None,
+                'send_consumption_predictions_to_fahrplanmanagement': True,
+                'historic_days_for_consumption_prediction': 50,
             }
         }
 
@@ -141,26 +157,64 @@ class TestLocation:
             "alias": "New Location",
             "tso": TransmissionSystemOperator.AMPRION.value,
             "residual_short": {"number": "market_location-1"},
-            "settings": {"active_from": "2024-01-01", "active_until": None},
+            "settings": {
+                "active_from": "2024-01-01",
+                "active_until": None,
+                "send_consumption_predictions_to_fahrplanmanagement": True,
+                "historic_days_for_consumption_prediction": 50,
+            },
         }
 
         post_response = client.post("/locations/", json=json)
 
         location_id = post_response.json()["id"]
-        json = {"active_from": "2024-01-01", "active_until": "2024-01-10"}
+        json = {
+            "active_from": "2024-01-01",
+            "active_until": "2024-01-10",
+            "send_consumption_predictions_to_fahrplanmanagement": True,
+            "historic_days_for_consumption_prediction": 50,
+        }
         response = client.put(f"/locations/{location_id}/settings", json=json)
         assert response.status_code == 200
         assert response.json()["settings"]["active_until"] == "2024-01-10"
 
     def test_get_locations(self, bus, setup_database):
-        client.post("/locations/", json={"state": State.BERLIN, "alias": "Location-1", "tso": TransmissionSystemOperator.AMPRION.value, "residual_short": {"number": "market_location-1"}, "settings": {"active_from": "2024-01-01"}})
-        client.post("/locations/", json={"state": State.BERLIN, "alias": "Location-2", "tso": TransmissionSystemOperator.AMPRION.value, "residual_short": {"number": "market_location-2"}, "settings": {"active_from": "2024-01-01"}})
+        client.post("/locations/", json={
+            "state": State.BERLIN,
+            "alias": "Location-1",
+            "tso": TransmissionSystemOperator.AMPRION.value,
+            "residual_short": {"number": "market_location-1"},
+            "settings": {
+                "active_from": "2024-01-01",
+                "send_consumption_predictions_to_fahrplanmanagement": True,
+                "historic_days_for_consumption_prediction": 50,
+            }})
+        client.post("/locations/", json={
+            "state": State.BERLIN,
+            "alias": "Location-2",
+            "tso": TransmissionSystemOperator.AMPRION.value,
+            "residual_short": {"number": "market_location-2"},
+            "settings": {
+                "active_from": "2024-01-01",
+                "send_consumption_predictions_to_fahrplanmanagement": True,
+                "historic_days_for_consumption_prediction": 50,
+            }})
         response = client.get("/locations/")
         assert response.status_code == 200
         assert response.json()["total"] == 2
 
     def test_get_location(self, bus, setup_database):
-        json = {"state": State.BERLIN.value, "alias": "Location-1", "tso": TransmissionSystemOperator.AMPRION.value, "residual_short": {"number": "market_location-1"}, "settings": {"active_from": "2024-01-01", "active_until": None}}
+        json = {
+            "state": State.BERLIN.value,
+            "alias": "Location-1",
+            "tso": TransmissionSystemOperator.AMPRION.value,
+            "residual_short": {"number": "market_location-1"},
+            "settings": {
+                "active_from": "2024-01-01",
+                "active_until": None,
+                "send_consumption_predictions_to_fahrplanmanagement": True,
+                "historic_days_for_consumption_prediction": 50,
+            }}
         post_response = client.post("/locations/", json=json)
         location_id = post_response.json()["id"]
         response = client.get(f"/locations/{location_id}/")
@@ -179,7 +233,9 @@ class TestLocation:
             'producers': [],
             'settings': {
                 'active_from': '2024-01-01',
-                'active_until': None
+                'active_until': None,
+                "send_consumption_predictions_to_fahrplanmanagement": True,
+                "historic_days_for_consumption_prediction": 50,
             }
         }
         assert expected_json == response.json()

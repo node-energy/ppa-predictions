@@ -37,6 +37,8 @@ def location():
         settings=model.LocationSettings(
             active_from=dt.date(2024, 1, 1),
             active_until=None,
+            send_consumption_predictions_to_fahrplanmanagement=True,
+            historic_days_for_consumption_prediction=50,
         ),
         state=enums.State.BERLIN,
         residual_short=model.MarketLocation(number=random_malo(), measurand=enums.Measurand.POSITIVE),

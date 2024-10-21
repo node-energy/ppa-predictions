@@ -104,6 +104,8 @@ class LocationSettingsFactory(factory.alchemy.SQLAlchemyModelFactory):
 
     active_from = datetime.date(2024, 1, 1)
     active_until = None
+    send_consumption_predictions_to_fahrplanmanagement = True
+    historic_days_for_consumption_prediction = 50
 
 
 class ProducerFactory(factory.alchemy.SQLAlchemyModelFactory):
