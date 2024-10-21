@@ -168,7 +168,8 @@ def calculate_predictions(
                                     start_date, datetime.time.min, tzinfo=TIMEZONE_BERLIN
                                 ),
                             )),
-                            type=src.enums.PredictionType.PRODUCTION
+                            type=src.enums.PredictionType.PRODUCTION,
+                            component=producer,
                         )
                     )
 

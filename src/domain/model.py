@@ -71,9 +71,13 @@ class Location(AggregateRoot):
         self,
         prediction_type,
         receiver: Optional[PredictionReceiver]=None,
-        sent_before: Optional[time] = None
+        sent_before: Optional[time] = None,
+        component: Optional[Component] = None
     ) -> Optional[Prediction]:
         sorted_predictions = (p for p in sorted(self.predictions, reverse=True) if p.type == prediction_type)
+        if component:
+            sorted_predictions = filter(lambda prediction: prediction.component == component, sorted_predictions)
+
         if not receiver and not sent_before:
             return next(sorted_predictions, None)
 
@@ -199,8 +203,6 @@ class Location(AggregateRoot):
         return None
 
 
-
-
 @dataclass(kw_only=True)
 class MarketLocation(Entity):
     number: str
@@ -246,6 +248,7 @@ class Prediction(Entity):
     df: DataFrame[TimeSeriesSchema]
     type: PredictionType
     shipments: list[PredictionShipment] = field(default_factory=list)
+    component: Optional[Component] = None
 
     def __eq__(self, other):
         return self.id == other.id
