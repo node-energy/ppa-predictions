@@ -16,26 +16,61 @@ from src.utils.timezone import TIMEZONE_BERLIN
 faker = Faker("de_DE")
 
 PROGNOSIS_HORIZON_DAYS = 7
-TIMESERIES_START = datetime.datetime.combine(datetime.date.today(), datetime.time(0, 0), tzinfo=TIMEZONE_BERLIN) + datetime.timedelta(days=1)
-TIMESERIES_END = datetime.datetime.combine(
-    (TIMESERIES_START + datetime.timedelta(days=PROGNOSIS_HORIZON_DAYS)).date(), datetime.time(23, 45), tzinfo=TIMEZONE_BERLIN
-)
-INDEX = pd.date_range(
-    start=TIMESERIES_START,
-    end=TIMESERIES_END,
-    freq="15min",
-    name="datetime",
-)
+
+
+def _generate_prediction_df():
+    start = datetime.datetime.combine(
+        datetime.date.today(),
+        datetime.time(0, 0),
+        tzinfo=TIMEZONE_BERLIN
+    ) + datetime.timedelta(days=1)
+    end = datetime.datetime.combine(
+        start,
+        datetime.time(23, 45),
+        tzinfo=TIMEZONE_BERLIN
+    ) + datetime.timedelta(days=PROGNOSIS_HORIZON_DAYS)
+
+    index = pd.date_range(
+        start=start,
+        end=end,
+        freq="15min",
+        name="datetime",
+    )
+    return DataFrame[TimeSeriesSchema](
+        index=index,
+        data={"value": [round(random.random() * 100, 3) for _ in range(len(index))]}
+    )
+
+
+def _generate_historic_df():
+    start = datetime.datetime.combine(
+        datetime.date.today(),
+        datetime.time(0, 0),
+        tzinfo=TIMEZONE_BERLIN
+    ) - datetime.timedelta(days=51)
+    end = datetime.datetime.combine(
+        datetime.date.today(),
+        datetime.time(23, 45),
+        tzinfo=TIMEZONE_BERLIN
+    ) - datetime.timedelta(days=1)
+
+    index = pd.date_range(
+        start=start,
+        end=end,
+        freq="15min",
+        name="datetime",
+    )
+    return DataFrame[TimeSeriesSchema](
+        index=index,
+        data={"value": [round(random.random() * 100, 3) for _ in range(len(index))]}
+    )
 
 
 class HistoricLoadDataFactory(factory.alchemy.SQLAlchemyModelFactory):
     class Meta:
         model = model.HistoricLoadData
 
-    df = DataFrame[TimeSeriesSchema](
-        index=INDEX,
-        data={"value": [round(random.random() * 100, 3) for _ in range(len(INDEX))]}
-    )
+    df = _generate_historic_df()
 
 
 class PredictionShipmentFactory(factory.alchemy.SQLAlchemyModelFactory):
@@ -50,10 +85,7 @@ class PredictionFactory(factory.alchemy.SQLAlchemyModelFactory):
         model = model.Prediction
 
     type = enums.PredictionType.PRODUCTION
-    df = DataFrame[TimeSeriesSchema](
-        index=INDEX,
-        data={"value": [round(random.random() * 100, 3) for _ in range(len(INDEX))]}
-    )
+    df = _generate_prediction_df()
     shipments = []
 
 
