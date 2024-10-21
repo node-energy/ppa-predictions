@@ -99,12 +99,6 @@ class Location(AggregateRoot):
                 return None
                 # self.events.append(events.MissingData())
             return self.residual_short.historic_load_data.df
-        else:
-            if not self.residual_long:
-                return (
-                    self.producers[0].market_location.historic_load_data.df
-                    + self.residual_short.historic_load_data.df
-                )
         return (
             sum(p.market_location.historic_load_data.df for p in self.producers)
             - self.residual_long.historic_load_data.df

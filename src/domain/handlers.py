@@ -306,7 +306,7 @@ def send_residual_long_predictions_to_impuls_energy_trading(
 
 
 def _location_is_assigned_to_impuls(location: model.Location) -> bool:
-    return location.has_production and location.producers[0].prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP
+    return location.has_production and any(p.prognosis_data_retriever == DataRetriever.IMPULS_ENERGY_TRADING_SFTP for p in location.producers)
 
 
 def _get_daily_dfs_from_predictions(
