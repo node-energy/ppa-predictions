@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable, Type
 
-from src.domain.model import Location
+from src.domain.model import Location, Producer
 from src.enums import DataRetriever
 from src.services.load_data_exchange.common import AbstractLoadDataRetriever
 from src.services.load_data_exchange.enercast import EnercastSftpDataRetriever, EnercastApiDataRetriever
@@ -9,23 +9,31 @@ from src.services.load_data_exchange.impuls_energy_trading import IetSftpGenerat
 
 
 @dataclass
+class LocationAndProducer:
+    location: Location
+    producer: Producer
+
+
+@dataclass
 class DataRetrieverConfig:
     data_retriever: Type[AbstractLoadDataRetriever]
-    asset_identifier_func: Callable[[Location], str]
+    asset_identifier_func: Callable[[LocationAndProducer], str]
 
 
 DATA_RETRIEVER_MAP: dict[DataRetriever, DataRetrieverConfig] = {
     DataRetriever.ENERCAST_SFTP: DataRetrieverConfig(
         EnercastSftpDataRetriever,
-        lambda location: location.residual_long.number,
+        lambda location_and_producer: location_and_producer.location.residual_long.number if len(
+            location_and_producer.location.producers) == 0 else location_and_producer.producer.market_location.number,
     ),
     DataRetriever.ENERCAST_API: DataRetrieverConfig(
         EnercastApiDataRetriever,
-        lambda location: location.residual_long.number,
+        lambda location_and_producer: location_and_producer.location.residual_long.number if len(
+            location_and_producer.location.producers) == 0 else location_and_producer.producer.market_location.number,
     ),
     DataRetriever.IMPULS_ENERGY_TRADING_SFTP: DataRetrieverConfig(
         IetSftpGenerationDataRetriever,
-        lambda location: str(location.residual_long.id),
+        lambda location_and_producer: str(location_and_producer.location.residual_long.id),
     )
 }
 
