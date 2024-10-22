@@ -236,6 +236,7 @@ class LocationRepository(
                 shipments=[
                     prediction_shipment_to_domain(s) for s in db_prediction.shipments
                 ],
+                component=component_to_domain(db_prediction.component),
             )
 
         def prediction_shipment_to_domain(
@@ -325,6 +326,7 @@ class LocationRepository(
                 type=prediction.type.value,
                 dataframe=f.read(),
                 shipments=[prediction_shipment_to_db(s) for s in prediction.shipments],
+                component=component_to_db(prediction.component),
             )
 
         def prediction_shipment_to_db(

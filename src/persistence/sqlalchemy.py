@@ -62,6 +62,11 @@ class Component(Base, UUIDMixin):
         back_populates="producers", foreign_keys=[producer_location_id]
     )
     prognosis_data_retriever: Mapped[Optional[str]]
+    predictions: Mapped[list[Prediction]] = relationship(
+        back_populates="component",
+        foreign_keys="Prediction.component_id",
+        cascade="all, delete-orphan",
+    )
 
 
 class MarketLocation(Base, UUIDMixin):
@@ -105,6 +110,10 @@ class Prediction(Base, UUIDMixin):
         back_populates="prediction",
         foreign_keys="PredictionShipment.prediction_id",
         cascade="all, delete-orphan",
+    )
+    component_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("components.id"))
+    component: Mapped[Optional[Component]] = relationship(
+        back_populates="predictions", foreign_keys=[component_id]
     )
 
 

@@ -1,17 +1,20 @@
 import datetime
 import datetime as dt
+from unittest.mock import patch
+
 import pandas as pd
 from pandas._testing import assert_frame_equal
 from pandera.typing import DataFrame
 
 from src import enums
-from src.enums import PredictionReceiver, TransmissionSystemOperator, PredictionType
+from src.enums import PredictionReceiver, TransmissionSystemOperator, PredictionType, DataRetriever
 from src.infrastructure.message_bus import MessageBus
 from src.infrastructure.unit_of_work import MemoryUnitOfWork
 from src.services.load_data_exchange.common import AbstractLoadDataRetriever
 from src.services.data_sender import DataSender
 from src.domain import commands
 from src.domain import model
+from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER_MAP, DataRetrieverConfig
 from src.utils.dataframe_schemas import IetLoadDataSchema
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
 from tests.conftest import ONE_HOUR_BEFORE_GATE_CLOSURE
@@ -28,8 +31,8 @@ def create_df_with_constant_values(value=42.0):
     return df
 
 
-class FakeLoadDataReceiver(AbstractLoadDataRetriever):
-    def get_data(self, asset_identifier: str, measurand: enums.Measurand):
+class FakeLoadDataRetriever(AbstractLoadDataRetriever):
+    def get_data(self, asset_identifier: str, measurand: enums.Measurand, **kwargs):
         return create_df_with_constant_values()
 
 
@@ -37,7 +40,7 @@ def setup_test():
     bus = MessageBus()
     bus.setup(
         MemoryUnitOfWork(),
-        FakeLoadDataReceiver(),
+        FakeLoadDataRetriever(),
         dts=DataSender(
             fahrplanmanagement_sender=FakeEmailSender(),
             impuls_energy_trading_eigenverbrauch_sender=FakeIetDataSender(),
@@ -99,12 +102,15 @@ class TestPrediction:
         bus.handle(commands.CalculatePredictions(location_id=str(location.id)))
 
         assert len(location.predictions) == 2
-        mask = (
-            location.residual_short.historic_load_data.df.index.date >= location.settings.active_from) & (
-            location.residual_short.historic_load_data.df.index.date < location.settings.active_until if location.settings.active_until else True
+        index = pd.date_range(
+            start=datetime.datetime.combine(location.settings.active_from, datetime.time(tzinfo=TIMEZONE_BERLIN)),
+            end=datetime.datetime.combine(location.settings.active_until, datetime.time(tzinfo=TIMEZONE_BERLIN)),
+            freq="15min",
+            inclusive="left"
         )
+
         for prediction in location.predictions:
-            pd.testing.assert_index_equal(location.residual_short.historic_load_data.df["value"][mask].index, prediction.df.index, check_names=False)
+            pd.testing.assert_index_equal(pd.DatetimeIndex(index), prediction.df.index, check_names=False)
 
     def test_wont_calculate_predictions_if_not_active_yet(self):
         today = dt.date.today()
@@ -120,6 +126,86 @@ class TestPrediction:
         bus.handle(commands.CalculatePredictions(location_id=str(location.id)))
 
         assert len(location.predictions) == 0
+
+    def test_calculate_prediction_teileinspeiser(self):
+        with patch.dict(
+                DATA_RETRIEVER_MAP,
+                {DataRetriever.ENERCAST_SFTP: DataRetrieverConfig(
+                    FakeLoadDataRetriever,
+                    lambda location_and_producer: None,
+                )},
+                clear=True
+        ):
+            bus = setup_test()
+            location = LocationFactory.build()
+
+            bus.uow.locations.add(location)
+            bus.handle(commands.CalculatePredictions(location_id=str(location.id)))
+
+        assert len(location.predictions) == 4
+        assert sorted([p.type for p in location.predictions]) == sorted([
+            PredictionType.CONSUMPTION,
+            PredictionType.PRODUCTION,
+            PredictionType.RESIDUAL_SHORT,
+            PredictionType.RESIDUAL_LONG,
+        ])
+
+        short_prediction = next(filter(lambda p: p.type == PredictionType.RESIDUAL_SHORT, location.predictions))
+        consumption_prediction = next(filter(lambda p: p.type == PredictionType.CONSUMPTION, location.predictions))
+        long_prediction = next(filter(lambda p: p.type == PredictionType.RESIDUAL_LONG, location.predictions))
+        producer_prediction = next(filter(lambda p: p.type == PredictionType.PRODUCTION and p.component == location.producers[0], location.predictions))
+
+        expected_residual = producer_prediction.df - consumption_prediction.df
+        expected_residual = expected_residual[expected_residual.first_valid_index(): expected_residual.last_valid_index()]
+        expected_residual_long = expected_residual.clip(lower=0)
+        expected_residual_short = expected_residual.clip(upper=0) * -1
+
+        assert_frame_equal(long_prediction.df, expected_residual_long)
+        assert_frame_equal(short_prediction.df, expected_residual_short)
+
+    def test_calculate_prediction_teileinspeiser_multiple_producers(self):
+        with patch.dict(
+                DATA_RETRIEVER_MAP,
+                {DataRetriever.ENERCAST_SFTP: DataRetrieverConfig(
+                    FakeLoadDataRetriever,
+                    lambda location_and_producer: None,
+                )},
+                clear=True
+        ):
+            bus = setup_test()
+            producers = [
+                ProducerFactory.build(),
+                ProducerFactory.build(),
+            ]
+            location = LocationFactory.build(
+                producers=producers,
+            )
+
+            bus.uow.locations.add(location)
+            bus.handle(commands.CalculatePredictions(location_id=str(location.id)))
+
+        assert len(location.predictions) == 5
+        assert sorted([p.type for p in location.predictions]) == sorted([
+            PredictionType.CONSUMPTION,
+            PredictionType.PRODUCTION,
+            PredictionType.PRODUCTION,
+            PredictionType.RESIDUAL_SHORT,
+            PredictionType.RESIDUAL_LONG,
+        ])
+
+        short_prediction = next(filter(lambda p: p.type == PredictionType.RESIDUAL_SHORT, location.predictions))
+        consumption_prediction = next(filter(lambda p: p.type == PredictionType.CONSUMPTION, location.predictions))
+        long_prediction = next(filter(lambda p: p.type == PredictionType.RESIDUAL_LONG, location.predictions))
+        producer_1_prediction = next(filter(lambda p: p.type == PredictionType.PRODUCTION and p.component == producers[0], location.predictions))
+        producer_2_prediction = next(filter(lambda p: p.type == PredictionType.PRODUCTION and p.component == producers[1], location.predictions))
+
+        expected_residual = producer_1_prediction.df + producer_2_prediction.df - consumption_prediction.df
+        expected_residual = expected_residual[expected_residual.first_valid_index(): expected_residual.last_valid_index()]
+        expected_residual_long = expected_residual.clip(lower=0)
+        expected_residual_short = expected_residual.clip(upper=0) * -1
+
+        assert_frame_equal(long_prediction.df, expected_residual_long)
+        assert_frame_equal(short_prediction.df, expected_residual_short)
 
 
 class TestSendPredictions:

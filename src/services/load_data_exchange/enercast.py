@@ -86,14 +86,18 @@ class EnercastSftpDataRetriever(AbstractLoadDataRetriever):
             inplace=True,
         )
         df.set_index("datetime", inplace=True)
-        df.index = pd.to_datetime(df.index)
-        df = df.tz_localize(TIMEZONE_BERLIN)
         df = df[~df.index.duplicated(keep='first')]
         df = df.sort_index()
         return df
 
     def _csv_to_dataframe(self, file_obj):
         df = pd.read_csv(file_obj, sep=";", decimal=",", index_col=None, header=0)
+        # apparently pandas < 2.0 has a bug in tz_localize with zoneinfo ojbects.
+        # see https://stackoverflow.com/a/77827969/15077097
+        # currently we are restricted to pandas 1.5 because of constraints from optinode dependency
+        # therefore tz_localize here works with the string "Europe/Berlin" and then the timezone is changed to
+        # the zoneinfo object to stay consistens with the rest of the codebase
+        df["Timestamp (Europe/Berlin)"] = pd.to_datetime(df["Timestamp (Europe/Berlin)"]).dt.tz_localize("Europe/Berlin", ambiguous="infer").dt.tz_convert(TIMEZONE_BERLIN)
         return df
 
     @staticmethod
