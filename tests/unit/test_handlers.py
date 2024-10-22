@@ -99,12 +99,15 @@ class TestPrediction:
         bus.handle(commands.CalculatePredictions(location_id=str(location.id)))
 
         assert len(location.predictions) == 2
-        mask = (
-            location.residual_short.historic_load_data.df.index.date >= location.settings.active_from) & (
-            location.residual_short.historic_load_data.df.index.date < location.settings.active_until if location.settings.active_until else True
+        index = pd.date_range(
+            start=datetime.datetime.combine(location.settings.active_from, datetime.time(tzinfo=TIMEZONE_BERLIN)),
+            end=datetime.datetime.combine(location.settings.active_until, datetime.time(tzinfo=TIMEZONE_BERLIN)),
+            freq="15min",
+            inclusive="left"
         )
+
         for prediction in location.predictions:
-            pd.testing.assert_index_equal(location.residual_short.historic_load_data.df["value"][mask].index, prediction.df.index, check_names=False)
+            pd.testing.assert_index_equal(pd.DatetimeIndex(index), prediction.df.index, check_names=False)
 
     def test_wont_calculate_predictions_if_not_active_yet(self):
         today = dt.date.today()
