@@ -132,7 +132,7 @@ class TestPrediction:
                 DATA_RETRIEVER_MAP,
                 {DataRetriever.ENERCAST_SFTP: DataRetrieverConfig(
                     FakeLoadDataRetriever,
-                    lambda location: location.residual_long.number,
+                    lambda location_and_producer: None,
                 )},
                 clear=True
         ):
@@ -168,7 +168,7 @@ class TestPrediction:
                 DATA_RETRIEVER_MAP,
                 {DataRetriever.ENERCAST_SFTP: DataRetrieverConfig(
                     FakeLoadDataRetriever,
-                    lambda location: location.residual_long.number,
+                    lambda location_and_producer: None,
                 )},
                 clear=True
         ):
