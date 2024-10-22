@@ -13,6 +13,7 @@ from src.domain.model import (
 from src.enums import PredictionType, DataRetriever, Measurand
 from src.utils.dataframe_schemas import TimeSeriesSchema
 from src.utils.timezone import TIMEZONE_BERLIN
+from tests.factories import LocationFactory
 
 
 def create_df_with_constant_values(value=42):
@@ -42,12 +43,15 @@ class TestLocation:
         assert_frame_equal(residual_short_df, result)
 
     def test_calculate_local_consumption_with_producer(self, location, producer):
-        input_df = create_df_with_constant_values()
-        producer.market_location.historic_load_data = HistoricLoadData(df=input_df)
-        location.producers.append(producer)
-        location.residual_short.historic_load_data = HistoricLoadData(df=input_df)
-        result = location.calculate_local_consumption()
-        assert (result["value"] == 84).all() == True
+        location = LocationFactory.build()
+        local_consumption = location.calculate_local_consumption()
+
+        assert_frame_equal(
+            local_consumption,
+            location.producers[0].market_location.historic_load_data.df -
+            location.residual_long.historic_load_data.df +
+            location.residual_short.historic_load_data.df
+        )
 
     def test_calculate_local_consumption_with_producer_and_residual_long(
         self, location, producer

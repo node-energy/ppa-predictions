@@ -71,9 +71,13 @@ class Location(AggregateRoot):
         self,
         prediction_type,
         receiver: Optional[PredictionReceiver]=None,
-        sent_before: Optional[time] = None
+        sent_before: Optional[time] = None,
+        component: Optional[Component] = None
     ) -> Optional[Prediction]:
         sorted_predictions = (p for p in sorted(self.predictions, reverse=True) if p.type == prediction_type)
+        if component:
+            sorted_predictions = filter(lambda prediction: prediction.component == component, sorted_predictions)
+
         if not receiver and not sent_before:
             return next(sorted_predictions, None)
 
@@ -95,24 +99,19 @@ class Location(AggregateRoot):
                 return None
                 # self.events.append(events.MissingData())
             return self.residual_short.historic_load_data.df
-        else:
-            if not self.residual_long:
-                return (
-                    self.producers[0].market_location.historic_load_data.df
-                    + self.residual_short.historic_load_data.df
-                )
         return (
-            self.producers[0].market_location.historic_load_data.df
+            sum(p.market_location.historic_load_data.df for p in self.producers)
             - self.residual_long.historic_load_data.df
             + self.residual_short.historic_load_data.df
-        )  # TODO currently we only allow one producer per location
+        )
 
     def calculate_location_residual_loads(self):
         # todo cut prognosis df, so that it starts at prognosis horizon (next day)
         total_consumption_df = self.get_most_recent_prediction(PredictionType.CONSUMPTION).df
-        total_production = self.get_most_recent_prediction(PredictionType.PRODUCTION)
-        if total_production:
-            total_production_df = total_production.df
+        if self.has_production:
+            total_production_df = sum(
+                self.get_most_recent_prediction(PredictionType.PRODUCTION, component=p).df for p in self.producers
+            )
 
         def clip_to_time_range(df: pd.DataFrame) -> pd.DataFrame:
             return df[
@@ -199,8 +198,6 @@ class Location(AggregateRoot):
         return None
 
 
-
-
 @dataclass(kw_only=True)
 class MarketLocation(Entity):
     number: str
@@ -246,6 +243,7 @@ class Prediction(Entity):
     df: DataFrame[TimeSeriesSchema]
     type: PredictionType
     shipments: list[PredictionShipment] = field(default_factory=list)
+    component: Optional[Component] = None
 
     def __eq__(self, other):
         return self.id == other.id
