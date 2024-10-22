@@ -22,6 +22,7 @@ from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER
 from src.services.load_data_exchange.impuls_energy_trading import TIMEZONE_FILENAMES
 from src.utils.dataframe_schemas import IetLoadDataSchema, TimeSeriesSchema, FahrplanmanagementSchema
 from src.utils.external_schedules import GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
+from src.utils.prediction_horizon import PredictionHorizonImpuls, PredictionHorizon
 from src.utils.split_df_by_day import split_df_by_day
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
 from src.enums import Measurand, DataRetriever, PredictionType
@@ -42,15 +43,20 @@ def update_and_predict_all(
 ):
     with uow:
         for location in uow.locations.get_all():
-            update_historic_data(
-                commands.UpdateHistoricData(location_id=str(location.id)), uow, ldr
-            )
-            calculate_predictions(
-                commands.CalculatePredictions(location_id=str(location.id)), uow
-            )
-            send_predictions(
-                commands.SendPredictions(location_id=str(location.id)), uow, dts
-            )
+            if not location.active_in_current_prediction_horizon:
+                continue
+            try:
+                update_historic_data(
+                    commands.UpdateHistoricData(location_id=str(location.id)), uow, ldr
+                )
+                calculate_predictions(
+                    commands.CalculatePredictions(location_id=str(location.id)), uow
+                )
+                send_predictions(
+                    commands.SendPredictions(location_id=str(location.id)), uow, dts
+                )
+            except Exception as exc:
+                logger.error(f"Could not update and predict for location {location.alias}: {exc}")
 
 
 def update_historic_data(
@@ -74,14 +80,26 @@ def update_historic_data(
 
         if (hld := get_historic_load_data(location.residual_short)) is not None:
             location.residual_short.historic_load_data = hld
+        else:
+            logger.error(
+                f"Could not get historic data for residual short market location {location.residual_short.number}"
+            )
 
         if location.has_production:
             if (hld := get_historic_load_data(location.residual_long)) is not None:
                 location.residual_long.historic_load_data = hld
+            else:
+                logger.error(
+                    f"Could not get historic data for residual long market location {location.residual_long.number}"
+                )
 
         for producer in location.producers:
             if (hld := get_historic_load_data(producer.market_location)) is not None:
                 producer.market_location.historic_load_data = hld
+            else:
+                logger.error(
+                    f"Could not get historic data for production market location {producer.market_location.number}"
+                )
 
         uow.locations.update(location)
         uow.commit()
@@ -99,27 +117,8 @@ def calculate_predictions(
         if local_consumption_df is None:
             return
 
-        start_date = datetime.date.today() + datetime.timedelta(days=1)
-        end_date = start_date + datetime.timedelta(days=7)
-
-        if (
-            location.settings.active_until is not None
-            and start_date > location.settings.active_until
-        ):
-            logger.info(
-                msg="Won't calculate predictions for location as <active_until> is in the past",
-                location=location.alias,
-                active_until=location.settings.active_until,
-            )
-            return
-        if end_date < location.settings.active_from:
-            logger.info(
-                msg="Won't calculate predictions for location as <active_from> is beyond the prediction horizon",
-                location=location.alias,
-                active_from=location.settings.active_from,
-            )
-            return
-        start_date = max(start_date, location.settings.active_from)
+        start_date = max(PredictionHorizon().start_date, location.settings.active_from)
+        end_date = PredictionHorizon().end_date
         if location.settings.active_until is not None:
             end_date = min(end_date, location.settings.active_until)
 
@@ -320,7 +319,7 @@ def _get_daily_dfs_from_predictions(
     dfs_by_day = split_df_by_day(df, TIMEZONE_FILENAMES)
 
     daily_dfs = OrderedDict()
-    for date in _dates_in_prognosis_horizon_impuls_energy_trading():
+    for date in PredictionHorizonImpuls().dates_in_prediction_horizon():
         daily_df = dfs_by_day.get(date)
         if daily_df is None:
             logger.error(f"Found no data for date {date} to send to Impuls Energy Trading")
@@ -328,14 +327,6 @@ def _get_daily_dfs_from_predictions(
         daily_df = DataFrame[IetLoadDataSchema](daily_df)
         daily_dfs[date] = daily_df
     return daily_dfs
-
-
-def _dates_in_prognosis_horizon_impuls_energy_trading() -> [datetime.date]:
-    dates_in_prognosis_horizon = []
-    tomorrow = datetime.date.today() + datetime.timedelta(days=1)
-    for n in range(6):
-        dates_in_prognosis_horizon.append(tomorrow + datetime.timedelta(days=n))
-    return dates_in_prognosis_horizon
 
 
 def _get_predictions_for_impuls_energy_trading(
