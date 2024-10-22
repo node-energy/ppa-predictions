@@ -24,12 +24,12 @@ DATA_RETRIEVER_MAP: dict[DataRetriever, DataRetrieverConfig] = {
     DataRetriever.ENERCAST_SFTP: DataRetrieverConfig(
         EnercastSftpDataRetriever,
         lambda location_and_producer: location_and_producer.location.residual_long.number if len(
-            location_and_producer.location.producers) == 0 else location_and_producer.producer.market_location.number,
+            location_and_producer.location.producers) == 1 else location_and_producer.producer.market_location.number,
     ),
     DataRetriever.ENERCAST_API: DataRetrieverConfig(
         EnercastApiDataRetriever,
         lambda location_and_producer: location_and_producer.location.residual_long.number if len(
-            location_and_producer.location.producers) == 0 else location_and_producer.producer.market_location.number,
+            location_and_producer.location.producers) == 1 else location_and_producer.producer.market_location.number,
     ),
     DataRetriever.IMPULS_ENERGY_TRADING_SFTP: DataRetrieverConfig(
         IetSftpGenerationDataRetriever,
