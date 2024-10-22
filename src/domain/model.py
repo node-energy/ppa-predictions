@@ -12,6 +12,7 @@ from pandera.typing import DataFrame
 
 from src.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver, TransmissionSystemOperator
 from src.utils.dataframe_schemas import TimeSeriesSchema
+from src.utils.prediction_horizon import PredictionHorizon
 from src.utils.timezone import utc_now
 
 
@@ -66,6 +67,13 @@ class Location(AggregateRoot):
     @property
     def has_production(self):
         return self.producers and len(self.producers) > 0
+
+    @property
+    def active_in_current_prediction_horizon(self):
+        starts_after_end_of_prediction_horizon = self.settings.active_from > PredictionHorizon().end_date
+        ends_before_start_of_prediction_horizon = self.settings.active_until < PredictionHorizon().start_date if self.settings.active_until is not None else False
+
+        return not starts_after_end_of_prediction_horizon and not ends_before_start_of_prediction_horizon
 
     def get_most_recent_prediction(
         self,

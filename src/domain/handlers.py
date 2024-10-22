@@ -22,6 +22,7 @@ from src.services.load_data_exchange.data_retriever_config import DATA_RETRIEVER
 from src.services.load_data_exchange.impuls_energy_trading import TIMEZONE_FILENAMES
 from src.utils.dataframe_schemas import IetLoadDataSchema, TimeSeriesSchema, FahrplanmanagementSchema
 from src.utils.external_schedules import GATE_CLOSURE_INTERNAL_FAHRPLANMANAGEMENT
+from src.utils.prediction_horizon import PredictionHorizonImpuls, PredictionHorizon
 from src.utils.split_df_by_day import split_df_by_day
 from src.utils.timezone import TIMEZONE_BERLIN, TIMEZONE_UTC
 from src.enums import Measurand, DataRetriever, PredictionType
@@ -320,7 +321,7 @@ def _get_daily_dfs_from_predictions(
     dfs_by_day = split_df_by_day(df, TIMEZONE_FILENAMES)
 
     daily_dfs = OrderedDict()
-    for date in _dates_in_prognosis_horizon_impuls_energy_trading():
+    for date in PredictionHorizonImpuls().dates_in_prediction_horizon():
         daily_df = dfs_by_day.get(date)
         if daily_df is None:
             logger.error(f"Found no data for date {date} to send to Impuls Energy Trading")
@@ -328,14 +329,6 @@ def _get_daily_dfs_from_predictions(
         daily_df = DataFrame[IetLoadDataSchema](daily_df)
         daily_dfs[date] = daily_df
     return daily_dfs
-
-
-def _dates_in_prognosis_horizon_impuls_energy_trading() -> [datetime.date]:
-    dates_in_prognosis_horizon = []
-    tomorrow = datetime.date.today() + datetime.timedelta(days=1)
-    for n in range(6):
-        dates_in_prognosis_horizon.append(tomorrow + datetime.timedelta(days=n))
-    return dates_in_prognosis_horizon
 
 
 def _get_predictions_for_impuls_energy_trading(
