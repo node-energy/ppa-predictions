@@ -17,10 +17,6 @@ class Period:
     start: datetime
     end: datetime
 
-    def __post_init__(self):
-        self.start = self.start.replace(hour=0, minute=0, second=0, microsecond=0)
-        self.end = self.end.replace(hour=0, minute=0, second=0, microsecond=0)
-
 
 class Entity:
     pass

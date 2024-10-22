@@ -43,15 +43,20 @@ def update_and_predict_all(
 ):
     with uow:
         for location in uow.locations.get_all():
-            update_historic_data(
-                commands.UpdateHistoricData(location_id=str(location.id)), uow, ldr
-            )
-            calculate_predictions(
-                commands.CalculatePredictions(location_id=str(location.id)), uow
-            )
-            send_predictions(
-                commands.SendPredictions(location_id=str(location.id)), uow, dts
-            )
+            if not location.active_in_current_prediction_horizon:
+                continue
+            try:
+                update_historic_data(
+                    commands.UpdateHistoricData(location_id=str(location.id)), uow, ldr
+                )
+                calculate_predictions(
+                    commands.CalculatePredictions(location_id=str(location.id)), uow
+                )
+                send_predictions(
+                    commands.SendPredictions(location_id=str(location.id)), uow, dts
+                )
+            except Exception as exc:
+                logger.error(f"Could not update and predict for location {location.alias}: {exc}")
 
 
 def update_historic_data(
@@ -75,14 +80,26 @@ def update_historic_data(
 
         if (hld := get_historic_load_data(location.residual_short)) is not None:
             location.residual_short.historic_load_data = hld
+        else:
+            logger.error(
+                f"Could not get historic data for residual short market location {location.residual_short.number}"
+            )
 
         if location.has_production:
             if (hld := get_historic_load_data(location.residual_long)) is not None:
                 location.residual_long.historic_load_data = hld
+            else:
+                logger.error(
+                    f"Could not get historic data for residual long market location {location.residual_long.number}"
+                )
 
         for producer in location.producers:
             if (hld := get_historic_load_data(producer.market_location)) is not None:
                 producer.market_location.historic_load_data = hld
+            else:
+                logger.error(
+                    f"Could not get historic data for production market location {producer.market_location.number}"
+                )
 
         uow.locations.update(location)
         uow.commit()
@@ -100,27 +117,8 @@ def calculate_predictions(
         if local_consumption_df is None:
             return
 
-        start_date = datetime.date.today() + datetime.timedelta(days=1)
-        end_date = start_date + datetime.timedelta(days=7)
-
-        if (
-            location.settings.active_until is not None
-            and start_date > location.settings.active_until
-        ):
-            logger.info(
-                msg="Won't calculate predictions for location as <active_until> is in the past",
-                location=location.alias,
-                active_until=location.settings.active_until,
-            )
-            return
-        if end_date < location.settings.active_from:
-            logger.info(
-                msg="Won't calculate predictions for location as <active_from> is beyond the prediction horizon",
-                location=location.alias,
-                active_from=location.settings.active_from,
-            )
-            return
-        start_date = max(start_date, location.settings.active_from)
+        start_date = max(PredictionHorizon().start_date, location.settings.active_from)
+        end_date = PredictionHorizon().end_date
         if location.settings.active_until is not None:
             end_date = min(end_date, location.settings.active_until)
 

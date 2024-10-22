@@ -125,7 +125,7 @@ class Location(AggregateRoot):
             return df[
                 (df.index.date >= self.settings.active_from)
                 & (
-                    df.index.date < self.settings.active_until
+                    df.index.date <= self.settings.active_until
                     if self.settings.active_until
                     else True
                 )

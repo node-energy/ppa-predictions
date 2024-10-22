@@ -103,10 +103,9 @@ class TestPrediction:
 
         assert len(location.predictions) == 2
         index = pd.date_range(
-            start=datetime.datetime.combine(location.settings.active_from, datetime.time(tzinfo=TIMEZONE_BERLIN)),
-            end=datetime.datetime.combine(location.settings.active_until, datetime.time(tzinfo=TIMEZONE_BERLIN)),
+            start=datetime.datetime.combine(location.settings.active_from, datetime.time.min, tzinfo=TIMEZONE_BERLIN),
+            end=datetime.datetime.combine(location.settings.active_until, datetime.time.max, tzinfo=TIMEZONE_BERLIN),
             freq="15min",
-            inclusive="left"
         )
 
         for prediction in location.predictions:
