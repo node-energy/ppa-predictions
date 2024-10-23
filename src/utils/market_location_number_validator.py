@@ -1,6 +1,38 @@
+import random
+import string
+
 import math
 
 from src.utils.exceptions import ValidationError
+
+
+def validate_market_or_metering_location_number(v):
+    try:
+        MeteringLocationNumberValidator()(v)
+    except ValidationError:
+        pass
+    MarketLocationNumberValidator()(v)
+    return v
+
+
+class MarketLocationNumberGenerator:
+    def __call__(self, *args, **kwargs):
+        return self._generate()
+
+    def _generate(self):
+        number = random.randint(1000000000, 9999999999)
+        digits = [int(d) for d in str(number)]
+        check_digit = MarketLocationNumberValidator._compute_check_digit(digits)
+        return str(number) + str(check_digit)
+
+
+class MeteringLocationNumberGenerator:
+    def __call__(self, *args, **kwargs):
+        return self._generate()
+
+    def _generate(self):
+        return "DE" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=31))
+
 
 # copied from optinode
 
@@ -59,7 +91,7 @@ class MeteringLocationNumberValidator:
 
     def _validate_length(self, value):
         if len(value) != 33:
-            raise ValidationError("Metering Location Number must consist of 33 characters")
+            raise ValidationError("Metering Location Number must consist of 33 symbols")
 
     def _validate_german(self, value):
         if value[:2] != "DE":
