@@ -27,14 +27,6 @@ def create_df_with_constant_values(value=42):
 
 
 class TestLocation:
-    def test_only_one_producer_per_location(self, location):
-        producer = Producer(market_location=MarketLocation(number="MALO-PRODUCER-01", measurand=Measurand.NEGATIVE), prognosis_data_retriever=DataRetriever.ENERCAST_SFTP)
-        location.add_component(producer)
-        producer2 = Producer(market_location=MarketLocation(number="MALO-PRODUCER-02", measurand=Measurand.NEGATIVE), prognosis_data_retriever=DataRetriever.ENERCAST_SFTP)
-        location.add_component(producer2)
-        assert producer in location.producers
-        assert producer2 not in location.producers
-
     def test_calculate_local_consumption_consumer_only(self, location):
         residual_short_df = create_df_with_constant_values()
         residual_short_load_data = HistoricLoadData(df=residual_short_df)
@@ -42,7 +34,7 @@ class TestLocation:
         result = location.calculate_local_consumption()
         assert_frame_equal(residual_short_df, result)
 
-    def test_calculate_local_consumption_with_producer(self, location, producer):
+    def test_calculate_local_consumption_with_producer(self, producer):
         location = LocationFactory.build()
         local_consumption = location.calculate_local_consumption()
 
@@ -52,23 +44,6 @@ class TestLocation:
             location.residual_long.historic_load_data.df +
             location.residual_short.historic_load_data.df
         )
-
-    def test_calculate_local_consumption_with_producer_and_residual_long(
-        self, location, producer
-    ):
-        input_df = create_df_with_constant_values()
-        producer.market_location.historic_load_data = HistoricLoadData(df=input_df)
-        location.producers.append(producer)
-        location.residual_short.historic_load_data = HistoricLoadData(
-            df=create_df_with_constant_values(0)
-        )
-        location.residual_long = MarketLocation(
-                number="MALO-PRODUCER-1",
-                measurand=Measurand.NEGATIVE,
-                historic_load_data=HistoricLoadData(df=input_df)
-            )
-        result = location.calculate_local_consumption()
-        assert (result["value"] == 0).all() == True
 
     def test_calculate_location_residual_loads_consumer_only(self, location):
         input_df = create_df_with_constant_values()

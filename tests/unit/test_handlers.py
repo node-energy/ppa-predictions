@@ -83,7 +83,6 @@ class TestHistoricData:
         bus = setup_test()
         location = LocationFactory.build()
 
-        location.residual_short = model.MarketLocation(number="MALO-CONSUMER-01", measurand=enums.Measurand.POSITIVE)
         bus.uow.locations.add(location)
         bus.handle(commands.UpdateHistoricData(location_id=str(location.id)))
 

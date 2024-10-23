@@ -12,6 +12,7 @@ from src import enums
 from src.domain import model
 from src.domain.model import MarketLocation
 from src.enums import TransmissionSystemOperator
+from src.utils.market_location_number_validator import MarketLocationNumberGenerator
 
 
 @pytest.fixture
@@ -41,11 +42,11 @@ def location():
             historic_days_for_consumption_prediction=50,
         ),
         state=enums.State.BERLIN,
-        residual_short=model.MarketLocation(number=random_malo(), measurand=enums.Measurand.POSITIVE),
+        residual_short=model.MarketLocation(number=MarketLocationNumberGenerator()(), measurand=enums.Measurand.POSITIVE),
         tso=TransmissionSystemOperator.AMPRION,
     )
 
 
 @pytest.fixture
 def producer():
-    return model.Producer(market_location=MarketLocation(number=random_malo(), measurand=enums.Measurand.NEGATIVE), prognosis_data_retriever=enums.DataRetriever.ENERCAST_SFTP)
+    return model.Producer(market_location=MarketLocation(number=MarketLocationNumberGenerator()(), measurand=enums.Measurand.NEGATIVE), prognosis_data_retriever=enums.DataRetriever.ENERCAST_SFTP)
