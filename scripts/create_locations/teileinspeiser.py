@@ -1,48 +1,4 @@
-import requests
-
-from src.enums import DataRetriever, TransmissionSystemOperator
-
-run_on_prod = False
-
-url_local = "http://127.0.0.1:8000/locations/"
-url_prod = "https://ppapredictions.testsystem.node.energy/locations/"
-
-api_key_local = "node"
-api_key_prod = None
-
-if run_on_prod:
-    url = url_prod
-    api_key = api_key_prod
-else:
-    url = url_local
-    api_key = api_key_local
-
-
-template = {
-    "state": "",
-    "alias": "",
-    "tso": None,
-    "residual_short": {
-        "number": ""
-    },
-    "residual_long": {
-        "number": ""
-    },
-    "producers": [
-        {
-            "name": "",
-            "market_location": {
-                "number": ""
-            },
-            "prognosis_data_retriever": None
-        },
-    ],
-    "settings": {
-        "active_from": "",
-        "active_until": None,
-        "send_consumption_predictions_to_fahrplanmanagement": None
-    }
-}
+from src.enums import TransmissionSystemOperator, DataRetriever
 
 lehmann = {
     "id": "5a759f56-322b-4d4f-abae-d3c22318ec3f",
@@ -73,7 +29,6 @@ lehmann = {
         "send_consumption_predictions_to_fahrplanmanagement": False
     }
 }
-
 riva = {
     "state": "BW",
     "alias": "Teileinspeisung PV Riva",
@@ -106,7 +61,6 @@ riva = {
         "send_consumption_predictions_to_fahrplanmanagement": False
     }
 }
-
 geis_ebersdorf = {
     "state": "BY",
     "alias": "Geis - 51553306479_PV_Geis",
@@ -132,7 +86,6 @@ geis_ebersdorf = {
         "send_consumption_predictions_to_fahrplanmanagement": False
     }
 }
-
 geis_bad_neustadt = {
     "state": "BY",
     "alias": "Geis - Teileinspeisung Bad Neustadt",
@@ -158,7 +111,6 @@ geis_bad_neustadt = {
         "send_consumption_predictions_to_fahrplanmanagement": False
     }
 }
-
 wetzel_daxlanden = {
     "state": "BW",
     "alias": "Schrott Wetzel West - Daxlanden",
@@ -184,13 +136,3 @@ wetzel_daxlanden = {
         "send_consumption_predictions_to_fahrplanmanagement": True
     }
 }
-
-location_payloads = [
-    riva
-]
-
-
-for location_payload in location_payloads:
-    headers = {"Content-Type": "application/json", "X-API-KEY": api_key}
-    response = requests.request("POST", url, json=location_payload, headers=headers)
-    assert response.status_code == 200
