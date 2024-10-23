@@ -3,7 +3,7 @@ import random
 
 import factory.alchemy
 import pandas as pd
-from factory import Sequence, SubFactory, LazyFunction
+from factory import SubFactory, LazyFunction
 from faker import Faker
 from pandera.typing import DataFrame
 
@@ -11,6 +11,7 @@ from src.domain import model
 from src import enums
 from src.enums import PredictionReceiver
 from src.utils.dataframe_schemas import TimeSeriesSchema
+from src.utils.market_location_number_validator import MarketLocationNumberGenerator
 from src.utils.timezone import TIMEZONE_BERLIN
 
 faker = Faker("de_DE")
@@ -93,7 +94,7 @@ class MarketLocationFactory(factory.alchemy.SQLAlchemyModelFactory):
     class Meta:
         model = model.MarketLocation
 
-    number = Sequence(lambda n: f"5{n:010d}")
+    number = factory.LazyFunction(MarketLocationNumberGenerator())
     measurand = enums.Measurand.POSITIVE
     historic_load_data = SubFactory(HistoricLoadDataFactory)
 

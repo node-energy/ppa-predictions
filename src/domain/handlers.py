@@ -385,6 +385,8 @@ def _query_params_for_impuls_predictions(send_even_if_not_sent_to_internal_fahrp
 
 def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfWork):
     with uow:
+        _validate_no_market_location_number_already_exists(cmd, uow)
+
         producers = []
         for p in cmd.producers:
             market_location = _build_market_location(
@@ -421,6 +423,21 @@ def add_location(cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfW
         uow.locations.add(location)
         uow.commit()
         return location
+
+
+def _validate_no_market_location_number_already_exists(
+        cmd: commands.CreateLocation, uow: unit_of_work.AbstractUnitOfWork
+):
+    existing_market_location_numbers = []
+    for location in uow.locations.get_all():
+        existing_market_location_numbers.extend([malo.number for malo in location.market_locations])
+
+    new_malo_numbers = [cmd.residual_short["number"], *[p["market_location_number"] for p in cmd.producers]]
+    if cmd.residual_long:
+        new_malo_numbers.append(cmd.residual_long["number"])
+    for malo_number in new_malo_numbers:
+        if malo_number in existing_market_location_numbers:
+            raise ValueError(f"Market location with number {malo_number} already exists")
 
 
 def _build_market_location(id_: Optional[uuid.UUID], number: str, measurand: src.enums.Measurand) -> model.MarketLocation:

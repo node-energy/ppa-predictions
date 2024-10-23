@@ -6,12 +6,16 @@ import uuid
 import pandas as pd
 from datetime import datetime, date, time
 from typing import Optional
-from dataclasses import dataclass, field
+from dataclasses import field
+from pydantic.dataclasses import dataclass
 
 from pandera.typing import DataFrame
+from pydantic import AfterValidator
+from typing_extensions import Annotated
 
 from src.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver, TransmissionSystemOperator
 from src.utils.dataframe_schemas import TimeSeriesSchema
+from src.utils.market_location_number_validator import validate_market_or_metering_location_number
 from src.utils.timezone import utc_now
 
 
@@ -20,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Entity:
-    id: uuid = field(hash=True, default_factory=uuid.uuid4)
+    id: uuid.UUID = field(hash=True, default_factory=uuid.uuid4)
 
     def __eq__(self, other):
         return self.id == other.id
@@ -153,16 +157,6 @@ class Location(AggregateRoot):
         self.predictions.append(prediction)
         # self.events.append(events.PredictionAdded(location_id=str(self.id)))
 
-    def add_component(
-        self, component: Component
-    ):  # TODO fails silently, most likely not needed at all
-        if isinstance(component, Consumer):
-            if not self.consumers:
-                self.consumers.append(component)
-        if isinstance(component, Producer):
-            if not self.producers:
-                self.producers.append(component)
-
     def delete_oldest_predictions(self, keep: int = 3, type: PredictionType = None):
         predictions = self.predictions
 
@@ -197,10 +191,21 @@ class Location(AggregateRoot):
             return DataFrame[TimeSeriesSchema](df[df.first_valid_index(): df.last_valid_index()])
         return None
 
+    @property
+    def market_locations(self) -> list[MarketLocation]:
+        market_locations = [self.residual_short]
+        if self.has_production:
+            market_locations.append(self.residual_long)
+            market_locations.extend([p.market_location for p in self.producers])
+        return market_locations
+
+
+MarketOrMeteringLocationNumber = Annotated[int | str, AfterValidator(validate_market_or_metering_location_number)]
+
 
 @dataclass(kw_only=True)
 class MarketLocation(Entity):
-    number: str
+    number: MarketOrMeteringLocationNumber
     measurand: Measurand
     historic_load_data: Optional[HistoricLoadData] = None
 
@@ -227,7 +232,7 @@ class Consumer(Component, Entity):
 class HistoricLoadData(Entity):
     __hash__ = Entity.__hash__
     created: datetime = field(default_factory=utc_now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
-    df: pd.DataFrame
+    df: DataFrame[TimeSeriesSchema]
 
     def __eq__(self, other):
         return self.id == other.id
