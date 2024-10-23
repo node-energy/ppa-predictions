@@ -3,6 +3,7 @@ import datetime as dt
 from unittest.mock import patch
 
 import pandas as pd
+import pytest
 from pandas._testing import assert_frame_equal
 from pandera.typing import DataFrame
 
@@ -48,6 +49,33 @@ def setup_test():
         ),
     )
     return bus
+
+
+class TestLocation:
+    def test_cannot_add_location_with_duplicate_malo_number(self):
+        bus = setup_test()
+        location_1 = LocationFactory.build()
+        location_2 = LocationFactory.build(
+            residual_long__number=location_1.residual_long.number
+        )
+
+        bus.uow.locations.add(location_1)
+
+        with pytest.raises(ValueError):
+            bus.handle(commands.CreateLocation(
+                id=location_2.id,
+                state=location_2.state,
+                alias=location_2.alias,
+                tso=location_2.tso,
+                residual_short={"number": location_2.residual_short.number},
+                residual_long={"number": location_2.residual_long.number},
+                producers=[],
+                settings_active_from=location_2.settings.active_from,
+                settings_active_until=location_2.settings.active_until,
+                settings_send_consumption_predictions_to_fahrplanmanagement=location_2.settings.send_consumption_predictions_to_fahrplanmanagement,
+                settings_historic_days_for_consumption_prediction=location_2.settings.historic_days_for_consumption_prediction,
+            )
+        )
 
 
 class TestHistoricData:

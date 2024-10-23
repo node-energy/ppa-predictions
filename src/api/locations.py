@@ -4,12 +4,14 @@ import uuid
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, field_validator
 from .common import get_bus, BasePagination
 from src.infrastructure.message_bus import MessageBus
 from src.domain import commands
 from src.domain.model import Location as DLocation
 from src.enums import DataRetriever, State, TransmissionSystemOperator
+from src.utils.market_location_number_validator import MarketLocationNumberValidator, MeteringLocationNumberValidator
+from src.utils.exceptions import ValidationError
 
 router = APIRouter(prefix="/locations")
 
@@ -17,6 +19,16 @@ router = APIRouter(prefix="/locations")
 class MarketLocation(BaseModel):
     id: Optional[uuid.UUID] = None
     number: str
+
+    @field_validator('number')
+    @classmethod
+    def validate_metering_or_market_location_number(cls, v: str) -> str:
+        try:
+            MeteringLocationNumberValidator()(v)
+        except ValidationError:
+            pass
+        MarketLocationNumberValidator()(v)
+        return v
 
 
 class Producer(BaseModel):

@@ -197,6 +197,14 @@ class Location(AggregateRoot):
             return DataFrame[TimeSeriesSchema](df[df.first_valid_index(): df.last_valid_index()])
         return None
 
+    @property
+    def market_locations(self) -> list[MarketLocation]:
+        market_locations = [self.residual_short]
+        if self.has_production:
+            market_locations.append(self.residual_long)
+            market_locations.extend([p.market_location for p in self.producers])
+        return market_locations
+
 
 @dataclass(kw_only=True)
 class MarketLocation(Entity):
