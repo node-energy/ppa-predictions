@@ -6,7 +6,8 @@ import uuid
 import pandas as pd
 from datetime import datetime, date, time
 from typing import Optional
-from dataclasses import dataclass, field
+from dataclasses import field
+from pydantic.dataclasses import dataclass
 
 from pandera.typing import DataFrame
 
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Entity:
-    id: uuid = field(hash=True, default_factory=uuid.uuid4)
+    id: uuid.UUID = field(hash=True, default_factory=uuid.uuid4)
 
     def __eq__(self, other):
         return self.id == other.id
@@ -153,16 +154,6 @@ class Location(AggregateRoot):
         self.predictions.append(prediction)
         # self.events.append(events.PredictionAdded(location_id=str(self.id)))
 
-    def add_component(
-        self, component: Component
-    ):  # TODO fails silently, most likely not needed at all
-        if isinstance(component, Consumer):
-            if not self.consumers:
-                self.consumers.append(component)
-        if isinstance(component, Producer):
-            if not self.producers:
-                self.producers.append(component)
-
     def delete_oldest_predictions(self, keep: int = 3, type: PredictionType = None):
         predictions = self.predictions
 
@@ -235,7 +226,7 @@ class Consumer(Component, Entity):
 class HistoricLoadData(Entity):
     __hash__ = Entity.__hash__
     created: datetime = field(default_factory=utc_now)  # this default is only used for newly created predictions in memory, value will be overwritten with current datetime when saved to database
-    df: pd.DataFrame
+    df: DataFrame[TimeSeriesSchema]
 
     def __eq__(self, other):
         return self.id == other.id

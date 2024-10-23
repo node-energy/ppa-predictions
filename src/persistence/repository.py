@@ -16,7 +16,7 @@ from src.enums import (
     PredictionType,
     PredictionReceiver,
 )
-from src.persistence.sqlalchemy import Base as DBBase, LocationSettings
+from src.persistence.sqlalchemy import Base as DBBase
 from src.persistence.sqlalchemy import (
     Location as DBLocation,
     Component as DBComponent,
@@ -182,7 +182,7 @@ class LocationRepository(
             return model.HistoricLoadData(
                 id=db_hld.id,
                 created=db_hld.created_at.replace(tzinfo=TIMEZONE_UTC),
-                df=pd.read_pickle(f),
+                df=DataFrame[TimeSeriesSchema](pd.read_pickle(f)),
             )
 
         def market_location_to_domain(
