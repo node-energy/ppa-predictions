@@ -10,9 +10,12 @@ from dataclasses import field
 from pydantic.dataclasses import dataclass
 
 from pandera.typing import DataFrame
+from pydantic import AfterValidator
+from typing_extensions import Annotated
 
 from src.enums import Measurand, DataRetriever, PredictionType, State, PredictionReceiver, TransmissionSystemOperator
 from src.utils.dataframe_schemas import TimeSeriesSchema
+from src.utils.market_location_number_validator import validate_market_or_metering_location_number
 from src.utils.timezone import utc_now
 
 
@@ -197,9 +200,12 @@ class Location(AggregateRoot):
         return market_locations
 
 
+MarketOrMeteringLocationNumber = Annotated[int | str, AfterValidator(validate_market_or_metering_location_number)]
+
+
 @dataclass(kw_only=True)
 class MarketLocation(Entity):
-    number: str
+    number: MarketOrMeteringLocationNumber
     measurand: Measurand
     historic_load_data: Optional[HistoricLoadData] = None
 
