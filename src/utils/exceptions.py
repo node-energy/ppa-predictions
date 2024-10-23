@@ -14,3 +14,7 @@ class ConflictingEnergyData(DataRetrieverException):
         super().__init__(
             f"Found multiple MeteringOrMarketLocations with different energy data for number {market_location_number}"
         )
+
+
+class ValidationError(Exception):
+    pass

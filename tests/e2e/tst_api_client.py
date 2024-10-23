@@ -53,7 +53,7 @@ class TestLocation:
             pytest.param({
                     "state": State.BERLIN.value,
                     "tso": TransmissionSystemOperator.AMPRION.value,
-                    "residual_short": {"number": "market_location-1"},
+                    "residual_short": {"number": "50000000005"},
                     "settings": {
                         "active_from": "2024-01-01",
                         "send_consumption_predictions_to_fahrplanmanagement": True,
@@ -65,13 +65,13 @@ class TestLocation:
                     "state": State.BERLIN.value,
                     "alias": "New Location",
                     "tso": TransmissionSystemOperator.AMPRION.value,
-                    "residual_short": {"number": "market_location-1"},
-                    "residual_long": {"number": "market_location-2"},
+                    "residual_short": {"number": "50000000005"},
+                    "residual_long": {"number": "51000000003"},
                     "producers": [
                         {
                             "name": "Producer 1",
                             "market_location": {
-                                "number": "market_location-3"
+                                "number": "59000000007"
                             },
                             "prognosis_data_retriever": "impuls_energy_trading_sftp"
                         }
@@ -89,15 +89,15 @@ class TestLocation:
                     "state": State.BERLIN.value,
                     "alias": "New Location",
                     "tso": TransmissionSystemOperator.AMPRION.value,
-                    "residual_short": {"id": "942ca59d-745c-492f-9095-d58cba45120d", "number": "market_location-1"},
-                    "residual_long": {"id": "ec489260-e178-4add-89c3-2166639218ac", "number": "market_location-2"},
+                    "residual_short": {"id": "942ca59d-745c-492f-9095-d58cba45120d", "number": "50000000005"},
+                    "residual_long": {"id": "ec489260-e178-4add-89c3-2166639218ac", "number": "51000000003"},
                     "producers": [
                         {
                             "id": "8d1cc110-fa2b-4fcc-a404-80155b431649",
                             "name": "Producer 1",
                             "market_location": {
                                 "id": "49214c9c-1474-4ac2-9bcc-d7a9c3c999d7",
-                                "number": "market_location-3"
+                                "number": "59000000007"
                             },
                             "prognosis_data_retriever": "impuls_energy_trading_sftp"
                         }
@@ -123,11 +123,11 @@ class TestLocation:
             'tso': 'amprion',
             'residual_short': {
                 'id': json['residual_short']["id"] if "id" in json['residual_short'].keys() else response.json()['residual_short']["id"],
-                'number': 'market_location-1'
+                'number': '50000000005'
             },
             'residual_long': {
                 'id': json['residual_long']['id'] if 'id' in json['residual_long'].keys() else response.json()['residual_long']['id'],
-                'number': 'market_location-2'
+                'number': '51000000003'
             } if 'residual_long' in json.keys() else None,
             'producers': [
                 {
@@ -135,7 +135,7 @@ class TestLocation:
                     'name': 'Producer 1',
                     'market_location': {
                         'id': json['producers'][0]['market_location']['id'] if 'id' in json['producers'][0]['market_location'].keys() else response.json()['producers'][0]['market_location']['id'],
-                        'number': 'market_location-3'
+                        'number': '59000000007'
                     },
                     'prognosis_data_retriever': 'impuls_energy_trading_sftp'
                 }
@@ -156,7 +156,7 @@ class TestLocation:
             "state": State.BERLIN.value,
             "alias": "New Location",
             "tso": TransmissionSystemOperator.AMPRION.value,
-            "residual_short": {"number": "market_location-1"},
+            "residual_short": {"number": "50000000005"},
             "settings": {
                 "active_from": "2024-01-01",
                 "active_until": None,
@@ -183,7 +183,7 @@ class TestLocation:
             "state": State.BERLIN,
             "alias": "Location-1",
             "tso": TransmissionSystemOperator.AMPRION.value,
-            "residual_short": {"number": "market_location-1"},
+            "residual_short": {"number": "50000000005"},
             "settings": {
                 "active_from": "2024-01-01",
                 "send_consumption_predictions_to_fahrplanmanagement": True,
@@ -193,7 +193,7 @@ class TestLocation:
             "state": State.BERLIN,
             "alias": "Location-2",
             "tso": TransmissionSystemOperator.AMPRION.value,
-            "residual_short": {"number": "market_location-2"},
+            "residual_short": {"number": "51000000003"},
             "settings": {
                 "active_from": "2024-01-01",
                 "send_consumption_predictions_to_fahrplanmanagement": True,
@@ -208,7 +208,7 @@ class TestLocation:
             "state": State.BERLIN.value,
             "alias": "Location-1",
             "tso": TransmissionSystemOperator.AMPRION.value,
-            "residual_short": {"number": "market_location-1"},
+            "residual_short": {"number": "50000000005"},
             "settings": {
                 "active_from": "2024-01-01",
                 "active_until": None,
@@ -227,7 +227,7 @@ class TestLocation:
             'tso': 'amprion',
             'residual_short': {
                 'id': response.json()['residual_short']['id'],
-                'number': 'market_location-1'
+                'number': '50000000005'
             },
             'residual_long': None,
             'producers': [],
